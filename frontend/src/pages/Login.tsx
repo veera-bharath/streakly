@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useStore } from '../store/useStore';
+import logo from '../assets/streakly.png';
 
 export function Login() {
   const navigate = useNavigate();
@@ -50,12 +51,7 @@ export function Login() {
         <div className="anim-up" style={{ width: '100%', maxWidth: 400 }}>
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 36 }}>
-            <div style={{
-              width: 40, height: 40, borderRadius: 12,
-              background: 'linear-gradient(135deg, #16a34a, #22c55e)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20, boxShadow: '0 4px 12px rgba(22,163,74,.3)',
-            }}>🔥</div>
+            <img src={logo} alt="Streakly" style={{ width: 40, height: 40, borderRadius: 12, objectFit: 'cover' }} />
             <div style={{ fontWeight: 800, fontSize: 20, letterSpacing: '-.025em' }}>Streakly</div>
           </div>
 

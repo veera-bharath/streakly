@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
+import logo from '../assets/streakly.png';
 
 const NAV = [
   { to: '/',          label: 'Dashboard', icon: '⊞',  mobileIcon: '⊞' },
@@ -18,14 +19,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="sidebar-logo" style={{ padding: '0 20px 24px', borderBottom: '1px solid var(--border)', marginBottom: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: 'linear-gradient(135deg, #16a34a, #22c55e)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 18, boxShadow: '0 2px 8px rgba(22,163,74,.3)',
-          }}>
-            🔥
-          </div>
+          <img src={logo} alt="Streakly" style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
           <div>
             <div style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-.025em', color: 'var(--text)' }}>
               Streakly
