@@ -9,21 +9,19 @@ import { Habit } from '../types';
 function todayStr()     { return new Date().toISOString().split('T')[0]; }
 function yesterdayStr() { const d = new Date(); d.setDate(d.getDate()-1); return d.toISOString().split('T')[0]; }
 
-function greeting(name: string, pct: number): string {
+function greeting(name: string): string {
   const h = new Date().getHours();
-  const base = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-  if (pct === 100) return `${base}, ${name} 🎉`;
-  if (pct >= 50)   return `${base}, ${name} 👍`;
-  return `${base}, ${name} 👋`;
+  if (h < 12) return `Good morning, ${name}.`;
+  if (h < 17) return `Good afternoon, ${name}.`;
+  return `Good evening, ${name}.`;
 }
 
 function subGreeting(pct: number, completed: number, total: number): string {
   if (total === 0) return 'Add your first habit to get started.';
-  if (pct === 100) return 'All habits done! Perfect day — you\'re on fire.';
-  if (pct >= 80)   return `Almost there! ${total - completed} habit${total - completed !== 1 ? 's' : ''} left.`;
-  if (pct >= 50)   return `Good progress — keep the momentum going.`;
-  if (completed === 0) return 'Start your day strong — complete your first habit.';
-  return `${completed} of ${total} done. Every rep counts.`;
+  if (pct === 100) return `All ${total} habits completed today.`;
+  if (pct >= 80)   return `${completed} of ${total} habits done — ${total - completed} remaining.`;
+  if (completed === 0) return `${total} habits scheduled for today.`;
+  return `${completed} of ${total} habits completed today.`;
 }
 
 function todayLabel(): string {
@@ -72,7 +70,7 @@ export function Dashboard() {
           ) : (
             <>
               <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1.15 }}>
-                {greeting(user?.username ?? 'there', pct)}
+                {greeting(user?.username ?? 'there')}
               </h1>
               <p style={{ fontSize: 14, color: 'var(--text-2)', marginTop: 5 }}>
                 {subGreeting(pct, completed, total)}
@@ -182,10 +180,9 @@ export function Dashboard() {
           border: '1.5px dashed var(--border-2)', borderRadius: 'var(--radius-xl)',
           background: 'transparent',
         }}>
-          <div style={{ fontSize: 52, marginBottom: 16 }}>🌱</div>
-          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-.02em', marginBottom: 8 }}>No habits yet</div>
+          <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-.02em', marginBottom: 8 }}>No habits yet</div>
           <div style={{ color: 'var(--text-2)', fontSize: 14, maxWidth: 260, margin: '0 auto 24px', lineHeight: 1.6 }}>
-            Start with one small habit. Consistency beats intensity.
+            Add your first habit to start tracking.
           </div>
           <button className="btn btn-primary" onClick={() => setShowModal(true)}>
             Add your first habit

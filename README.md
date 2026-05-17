@@ -1,12 +1,12 @@
-# 🔥 Streakly — Habit Tracker
+# Streakly — Habit Tracker
 
-> **Work in Progress** — actively being built. Expect breaking changes.
+**Status: Work in progress.** The API and data model may change without notice.
 
-A full-stack habit tracking application with real-time sync, GitHub-style heatmaps, and analytics.
+A full-stack habit tracking application with real-time sync, per-habit heatmaps, and analytics.
 
 ---
 
-## Tech Stack
+## Stack
 
 | Layer | Technology |
 |---|---|
@@ -14,46 +14,44 @@ A full-stack habit tracking application with real-time sync, GitHub-style heatma
 | Backend | Node.js + Express + TypeScript |
 | Database | Supabase (PostgreSQL) |
 | Real-time | Socket.io |
-| Auth | JWT (custom) |
+| Auth | JWT |
 | Charts | Recharts |
 | State | Zustand |
 
 ## Features
 
-- **Dashboard** — Daily habit tracking with animated progress bar, trend indicators (vs yesterday), and contextual greeting
-- **Habit Cards** — Per-habit 16-week heatmap grid, streak tracking, 30-day completion rate
-- **Analytics** — Weekly bar chart, 30-day trend line, insight cards (best/worst habit, most consistent day)
-- **Heatmap Page** — GitHub-style contribution grids per habit with 30d / 90d / 1yr filter and hover tooltips
-- **Real-time Sync** — Changes propagate instantly across browser tabs via Socket.io
-- **Auth** — JWT-based register/login with secure routes
+- **Dashboard** — Daily habit tracking with progress bar and trend indicators vs yesterday
+- **Habit cards** — 16-week heatmap grid per habit, streak counter, 30-day completion rate
+- **Analytics** — Weekly bar chart, 30-day trend line, best/worst habit insights, most consistent day
+- **Heatmap page** — Contribution grids per habit with 30d / 90d / 1yr filter and hover tooltips
+- **Real-time sync** — Changes propagate across browser tabs via Socket.io
+- **Auth** — JWT-based register and login
 
-## Planned Features
+## Planned
 
-- [ ] Mobile app (React Native) — same design system
-- [ ] Habit categories and tags
-- [ ] Reminders / notifications
-- [ ] Social / accountability partner mode
-- [ ] Dark mode toggle
-- [ ] Export data (CSV / JSON)
-- [ ] Habit templates
+- Mobile app (React Native) with the same design system
+- Habit categories and tags
+- Reminders and push notifications
+- Social / accountability features
+- Dark mode
+- Data export (CSV, JSON)
 
 ## Project Structure
 
 ```
 streakly/
-├── backend/                  # Node.js + Express API
-│   ├── src/
-│   │   ├── index.ts          # Server entry + Socket.io setup
-│   │   ├── middleware/auth.ts # JWT authentication
-│   │   ├── routes/
-│   │   │   ├── auth.ts       # POST /auth/register|login, GET /auth/me
-│   │   │   ├── habits.ts     # CRUD + toggle
-│   │   │   └── analytics.ts  # Weekly, monthly, streaks, heatmap
-│   │   ├── store/db.ts       # Supabase client
-│   │   └── utils/streaks.ts  # Streak calculation logic
-│   └── package.json
+├── backend/
+│   └── src/
+│       ├── index.ts              # Server entry + Socket.io
+│       ├── middleware/auth.ts    # JWT validation
+│       ├── routes/
+│       │   ├── auth.ts           # POST /auth/register|login, GET /auth/me
+│       │   ├── habits.ts         # CRUD + toggle
+│       │   └── analytics.ts      # Weekly, monthly, streaks, heatmap
+│       ├── store/db.ts           # Supabase client
+│       └── utils/streaks.ts      # Streak calculation
 │
-└── frontend/                 # React + Vite SPA
+└── frontend/
     └── src/
         ├── pages/
         │   ├── Dashboard.tsx
@@ -67,41 +65,34 @@ streakly/
         │   ├── Sidebar.tsx
         │   ├── AddHabitModal.tsx
         │   └── Skeleton.tsx
-        ├── store/useStore.ts  # Zustand global state
-        ├── hooks/useSocket.ts # Socket.io real-time
-        └── api/client.ts     # Typed fetch wrapper
+        ├── store/useStore.ts     # Zustand global state
+        ├── hooks/useSocket.ts    # Socket.io client
+        └── api/client.ts         # Typed fetch wrapper
 ```
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18+
-- A [Supabase](https://supabase.com) project
 
-### 1. Clone
+- Node.js 18+
+- A [Supabase](https://supabase.com) project (free tier works)
+
+### Setup
 
 ```bash
 git clone https://github.com/veera-bharath/streakly.git
 cd streakly
-```
 
-### 2. Backend setup
-
-```bash
+# Backend
 cd backend
 npm install
-cp .env.example .env
-# Fill in SUPABASE_URL and SUPABASE_ANON_KEY in .env
+cp .env.example .env   # fill in Supabase credentials
 npm run dev
-```
 
-### 3. Frontend setup
-
-```bash
+# Frontend (separate terminal)
 cd frontend
 npm install
-cp .env.example .env
-# Fill in VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env
+cp .env.example .env   # fill in Supabase credentials
 npm run dev
 ```
 
@@ -112,7 +103,7 @@ Open [http://localhost:5173](http://localhost:5173)
 **backend/.env**
 ```
 PORT=3001
-JWT_SECRET=your-secret-here
+JWT_SECRET=your-secret
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 ```
@@ -128,9 +119,5 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 ```sql
 users              -- accounts with hashed passwords
 habits             -- habit definitions per user
-habit_completions  -- one row per habit × day (unique constraint)
+habit_completions  -- one row per habit per day (unique constraint)
 ```
-
----
-
-> Built with ☕ — contributions and feedback welcome once out of WIP.
