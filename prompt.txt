@@ -1,0 +1,95 @@
+You are a senior full-stack engineer.
+
+Build a Habit Tracker application with:
+
+Frontend:
+- React + Vite + TypeScript
+
+Backend:
+- Node.js + Express
+
+Database:
+- Start with JSON file or in-memory store
+
+Features:
+- Create/delete habits
+- Mark habit completion per day
+- Track streaks
+- REST API architecture
+
+Backend:
+- Routes:
+  GET /habits
+  POST /habits
+  POST /habits/:id/toggle
+
+Frontend:
+- Component-based structure
+- API integration
+- State management
+
+Output:
+- Full frontend + backend code
+- Folder structure
+- Data models
+
+Keep it simple, clean, and extendable.
+
+---------------------------------------------------------------------------------------------------------------
+
+Enhance my Habit Tracker with analytics.
+
+Backend:
+- Add endpoints:
+  GET /analytics/weekly
+  GET /analytics/monthly
+  GET /analytics/streaks
+
+- Calculate:
+  - Completion percentage
+  - Streaks per habit
+  - Daily totals
+
+Frontend:
+- Dashboard page
+- Charts:
+  - Weekly bar chart
+  - Monthly trend line
+- Display stats clearly
+
+Use a lightweight chart library.
+
+Provide:
+- Backend logic
+- Frontend components
+- Data flow
+
+------------------------------------------------------------------------------------------------------------------
+
+Upgrade my Habit Tracker to a full-featured app.
+
+Features:
+
+1. Heatmap:
+- GitHub-style contribution grid
+- 365 days
+- Color intensity based on completion
+
+2. Authentication:
+- JWT-based login/signup
+- Secure routes
+
+3. Real-time sync:
+- Use Socket.io
+- Sync updates across devices
+
+Backend:
+- Auth routes
+- WebSocket setup
+
+Frontend:
+- Heatmap component
+- Auth pages
+- Real-time updates
+
+Focus on clean architecture and scalability.
