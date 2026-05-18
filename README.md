@@ -27,7 +27,9 @@ A full-stack habit tracking app with real-time sync, per-habit heatmaps, an anal
 ### Habit tracking
 - **Daily and weekly habits** — create a habit that must be done every day, or N times per week (1–7 configurable target)
 - **Toggle completion** — one click to mark done; undo within 5 seconds via the animated toast
-- **Dashboard** — daily progress bar, stat cards with yesterday comparison, per-habit cards
+- **Optimistic UI** — completion state flips instantly with automatic rollback if the API call fails
+- **Dashboard** — animated progress bar (fills from 0 on load), stat cards with yesterday comparison, per-habit cards
+- **Empty states** — friendly prompts when no habits or no data exist yet
 
 ### Streaks
 - **Daily habits** — consecutive-day streak, counts backwards from today or yesterday
@@ -49,6 +51,12 @@ A full-stack habit tracking app with real-time sync, per-habit heatmaps, an anal
 
 ### Real-time sync
 - All mutations emit Socket.io events to the user's private room — changes appear instantly across browser tabs
+
+### Performance & UX
+- **Lazy loading** — Analytics and Heatmap pages load as separate JS chunks; initial bundle is ~400 KB lighter
+- **Memoized components** — `HabitCard` and `MiniHeatmap` use `React.memo` with custom comparators to skip re-renders on unrelated state changes
+- **Custom hooks** — `useHabits` and `useAnalytics` encapsulate data fetching and memoized stats
+- **Micro-interactions** — staggered heatmap cell reveal, spring-style toggle button pop, bouncing empty-state icons, hover lift on cards
 
 ---
 
@@ -81,13 +89,16 @@ streakly/
 │       │   ├── Login.tsx
 │       │   └── Register.tsx
 │       ├── components/
-│       │   ├── HabitCard.tsx     # Undo toast, weekly progress badge
+│       │   ├── HabitCard.tsx     # Memoized; undo toast, optimistic toggle error flash
 │       │   ├── AddHabitModal.tsx # Frequency type + target selector
-│       │   ├── MiniHeatmap.tsx
+│       │   ├── MiniHeatmap.tsx   # Memoized; staggered cell reveal animation
 │       │   ├── Sidebar.tsx
 │       │   └── Skeleton.tsx
-│       ├── store/useStore.ts
-│       ├── hooks/useSocket.ts
+│       ├── hooks/
+│       │   ├── useHabits.ts      # Habits state + memoized dashboard stats
+│       │   ├── useAnalytics.ts   # Parallel analytics fetch + loading/error state
+│       │   └── useSocket.ts      # Socket.io real-time sync
+│       ├── store/useStore.ts     # Optimistic toggle with rollback
 │       └── api/client.ts
 │
 └── schema_migration.sql          # ALTER TABLE for frequency columns + indexes
