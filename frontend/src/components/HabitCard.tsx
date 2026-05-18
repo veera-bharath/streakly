@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { Habit } from '../types';
 import { useStore } from '../store/useStore';
 import { MiniHeatmap } from './MiniHeatmap';
@@ -8,7 +8,7 @@ interface Props {
   animDelay?: number;
 }
 
-/* Inline undo toast — appears for 5s after completing, then fades */
+/* ─── Undo toast ─── */
 function UndoToast({ onUndo, onDismiss }: { onUndo: () => void; onDismiss: () => void }) {
   const [progress, setProgress] = useState(100);
   const DURATION = 5000;
@@ -20,10 +20,7 @@ function UndoToast({ onUndo, onDismiss }: { onUndo: () => void; onDismiss: () =>
       const elapsed = Date.now() - start;
       const remaining = Math.max(0, 100 - (elapsed / DURATION) * 100);
       setProgress(remaining);
-      if (remaining === 0) {
-        clearInterval(intervalRef.current!);
-        onDismiss();
-      }
+      if (remaining === 0) { clearInterval(intervalRef.current!); onDismiss(); }
     }, 50);
     return () => clearInterval(intervalRef.current!);
   }, [onDismiss]);
@@ -32,30 +29,15 @@ function UndoToast({ onUndo, onDismiss }: { onUndo: () => void; onDismiss: () =>
     <div
       className="anim-in"
       style={{
-        margin: '10px 20px 0',
-        padding: '10px 14px',
-        background: 'var(--green-bg)',
-        borderRadius: 'var(--radius)',
-        border: '1px solid var(--green)',
-        position: 'relative',
-        overflow: 'hidden',
+        margin: '10px 20px 0', padding: '10px 14px',
+        background: 'var(--green-bg)', borderRadius: 'var(--radius)',
+        border: '1px solid var(--green)', position: 'relative', overflow: 'hidden',
       }}
     >
-      <div style={{
-        position: 'absolute', bottom: 0, left: 0,
-        height: 2, background: 'var(--green)',
-        width: `${progress}%`, transition: 'width 50ms linear',
-        opacity: 0.6,
-      }} />
+      <div style={{ position: 'absolute', bottom: 0, left: 0, height: 2, background: 'var(--green)', width: `${progress}%`, transition: 'width 50ms linear', opacity: 0.6 }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ fontSize: 13, color: 'var(--green)', fontWeight: 600, flex: 1 }}>
-          Marked complete
-        </span>
-        <button
-          className="btn btn-sm btn-ghost"
-          onClick={onUndo}
-          style={{ color: 'var(--green)', borderColor: 'var(--green)', padding: '3px 10px' }}
-        >
+        <span style={{ fontSize: 13, color: 'var(--green)', fontWeight: 600, flex: 1 }}>Marked complete</span>
+        <button className="btn btn-sm btn-ghost" onClick={onUndo} style={{ color: 'var(--green)', borderColor: 'var(--green)', padding: '3px 10px' }}>
           Undo
         </button>
       </div>
@@ -63,24 +45,24 @@ function UndoToast({ onUndo, onDismiss }: { onUndo: () => void; onDismiss: () =>
   );
 }
 
-export function HabitCard({ habit, animDelay = 0 }: Props) {
+/* ─── HabitCard (memoized) ─── */
+export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props) {
   const { toggleHabit, deleteHabit } = useStore();
-  const [toggling, setToggling] = useState(false);
-  const [showDelete, setShowDelete] = useState(false);
+  const [toggling, setToggling]       = useState(false);
+  const [toggleError, setToggleError] = useState(false);
+  const [showDelete, setShowDelete]   = useState(false);
   const [showUndoToast, setShowUndoToast] = useState(false);
   const prevCompletedToday = useRef(habit.completedToday);
 
-  const done = habit.completedToday;
-  const isWeekly = habit.frequencyType === 'weekly';
+  const done      = habit.completedToday;
+  const isWeekly  = habit.frequencyType === 'weekly';
   const weekProgress = habit.completedThisWeek;
-  const weekTarget = habit.frequencyTarget;
-  const weeklyDone = weekProgress >= weekTarget;
+  const weekTarget   = habit.frequencyTarget;
+  const weeklyDone   = weekProgress >= weekTarget;
 
-  // Show undo toast when a habit goes from incomplete → complete
+  // Show undo toast when habit goes incomplete → complete
   useEffect(() => {
-    if (!prevCompletedToday.current && habit.completedToday) {
-      setShowUndoToast(true);
-    }
+    if (!prevCompletedToday.current && habit.completedToday) setShowUndoToast(true);
     prevCompletedToday.current = habit.completedToday;
   }, [habit.completedToday]);
 
@@ -88,13 +70,21 @@ export function HabitCard({ habit, animDelay = 0 }: Props) {
     if (toggling) return;
     setToggling(true);
     if (showUndoToast) setShowUndoToast(false);
-    try { await toggleHabit(habit.id); } finally { setToggling(false); }
+    try {
+      await toggleHabit(habit.id);
+    } catch {
+      // Optimistic update already rolled back in store; show brief error flash
+      setToggleError(true);
+      setTimeout(() => setToggleError(false), 1800);
+    } finally {
+      setToggling(false);
+    }
   };
 
   const handleUndo = async () => {
     setShowUndoToast(false);
     setToggling(true);
-    try { await toggleHabit(habit.id); } finally { setToggling(false); }
+    try { await toggleHabit(habit.id); } catch { /* ignore */ } finally { setToggling(false); }
   };
 
   const completionRate = (() => {
@@ -113,45 +103,52 @@ export function HabitCard({ habit, animDelay = 0 }: Props) {
       className="card card-hover anim-up"
       style={{
         animationDelay: `${animDelay}ms`,
-        padding: '0',
+        padding: 0,
         borderLeft: `4px solid ${habit.color}`,
         overflow: 'hidden',
+        outline: toggleError ? `2px solid var(--red)` : 'none',
+        transition: 'outline 0.2s ease',
       }}
     >
       {/* Card header */}
       <div style={{ padding: '18px 20px 0' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+
           {/* Circle toggle */}
           <button
             onClick={handleToggle}
             disabled={toggling}
             title={done ? 'Mark incomplete' : 'Mark complete'}
+            className="habit-toggle"
             style={{
               width: 34, height: 34, borderRadius: '50%', flexShrink: 0, marginTop: 1,
-              border: `2px solid ${done ? habit.color : 'var(--border-2)'}`,
-              background: done ? habit.color : 'transparent',
+              border: `2px solid ${done ? habit.color : toggleError ? 'var(--red)' : 'var(--border-2)'}`,
+              background: done ? habit.color : toggleError ? 'var(--red-bg)' : 'transparent',
               color: '#fff',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 14, fontWeight: 700,
-              transition: 'all .25s cubic-bezier(.4,0,.2,1)',
               cursor: toggling ? 'wait' : 'pointer',
               animation: done && !toggling ? 'checkPop .35s ease' : 'none',
               boxShadow: done ? `0 2px 8px ${habit.color}55` : 'none',
+              transition: 'border-color .2s, background .2s, box-shadow .2s, transform .15s',
             }}
           >
             {toggling
               ? <span style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid #fff', borderTopColor: 'transparent', display: 'block', animation: 'spin .6s linear infinite' }} />
-              : done ? '✓' : ''
-            }
+              : done ? '✓' : ''}
           </button>
 
           {/* Name + description */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.01em' }}>
+              <span style={{
+                fontSize: 15, fontWeight: 700, letterSpacing: '-.01em',
+                textDecoration: done ? 'none' : 'none',
+                opacity: done ? 0.85 : 1,
+                transition: 'opacity .2s',
+              }}>
                 {habit.icon} {habit.name}
               </span>
-              {/* Frequency badge */}
               {isWeekly ? (
                 <span
                   className="badge"
@@ -159,12 +156,13 @@ export function HabitCard({ habit, animDelay = 0 }: Props) {
                     background: weeklyDone ? 'var(--green-bg)' : 'var(--surface-2)',
                     color: weeklyDone ? 'var(--green)' : 'var(--text-3)',
                     border: `1px solid ${weeklyDone ? 'var(--green)' : 'var(--border)'}`,
+                    transition: 'all .2s',
                   }}
                 >
-                  {weeklyDone ? '✓' : ''} {weekProgress}/{weekTarget}×wk
+                  {weeklyDone ? '✓ ' : ''}{weekProgress}/{weekTarget}×wk
                 </span>
               ) : (
-                done && <span className="badge badge-green">✓ Done</span>
+                done && <span className="badge badge-green anim-in">✓ Done</span>
               )}
             </div>
             {habit.description && (
@@ -177,10 +175,7 @@ export function HabitCard({ habit, animDelay = 0 }: Props) {
           {/* Streak + menu */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
             <div style={{ textAlign: 'right' }}>
-              <div style={{
-                fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 800, lineHeight: 1,
-                color: habit.streak > 0 ? habit.color : 'var(--text-3)',
-              }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 800, lineHeight: 1, color: habit.streak > 0 ? habit.color : 'var(--text-3)' }}>
                 {habit.streak > 0 && <span style={{ fontSize: 14 }}>🔥</span>} {habit.streak}
               </div>
               <div style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', letterSpacing: '.04em' }}>
@@ -199,26 +194,24 @@ export function HabitCard({ habit, animDelay = 0 }: Props) {
         </div>
       </div>
 
-      {/* Undo toast */}
-      {showUndoToast && (
-        <UndoToast
-          onUndo={handleUndo}
-          onDismiss={() => setShowUndoToast(false)}
-        />
+      {/* Error flash */}
+      {toggleError && (
+        <div className="anim-in" style={{ margin: '10px 20px 0', padding: '8px 12px', background: 'var(--red-bg)', borderRadius: 'var(--radius)', border: '1px solid #fca5a5', fontSize: 13, color: 'var(--red)', fontWeight: 500 }}>
+          Failed to update — please try again.
+        </div>
       )}
+
+      {/* Undo toast */}
+      {showUndoToast && <UndoToast onUndo={handleUndo} onDismiss={() => setShowUndoToast(false)} />}
 
       {/* Delete confirm */}
       {showDelete && (
         <div className="anim-in" style={{
-          margin: '12px 20px 0',
-          padding: '11px 14px',
+          margin: '12px 20px 0', padding: '11px 14px',
           background: 'var(--red-bg)', borderRadius: 'var(--radius)',
-          border: '1px solid #fca5a5',
-          display: 'flex', alignItems: 'center', gap: 12,
+          border: '1px solid #fca5a5', display: 'flex', alignItems: 'center', gap: 12,
         }}>
-          <span style={{ fontSize: 13, color: 'var(--red)', fontWeight: 500, flex: 1 }}>
-            Delete habit and all its data?
-          </span>
+          <span style={{ fontSize: 13, color: 'var(--red)', fontWeight: 500, flex: 1 }}>Delete habit and all its data?</span>
           <button className="btn btn-sm btn-ghost" onClick={() => setShowDelete(false)}>Cancel</button>
           <button className="btn btn-sm btn-danger" onClick={() => deleteHabit(habit.id)}>Delete</button>
         </div>
@@ -230,12 +223,7 @@ export function HabitCard({ habit, animDelay = 0 }: Props) {
       </div>
 
       {/* Footer stats */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 0,
-        padding: '12px 20px 16px',
-        borderTop: '1px solid var(--border)',
-        marginTop: 14,
-      }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '12px 20px 16px', borderTop: '1px solid var(--border)', marginTop: 14 }}>
         <div style={{ display: 'flex', gap: 16, flex: 1 }}>
           <div>
             <span style={{ fontSize: 11, color: 'var(--text-3)', display: 'block' }}>Best streak</span>
@@ -269,4 +257,14 @@ export function HabitCard({ habit, animDelay = 0 }: Props) {
       </div>
     </div>
   );
-}
+}, (prev, next) => {
+  // Custom comparator — only re-render when habit data actually changed
+  return (
+    prev.habit.id               === next.habit.id &&
+    prev.habit.completedToday   === next.habit.completedToday &&
+    prev.habit.completedThisWeek === next.habit.completedThisWeek &&
+    prev.habit.streak           === next.habit.streak &&
+    prev.habit.completions.length === next.habit.completions.length &&
+    prev.animDelay              === next.animDelay
+  );
+});

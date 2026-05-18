@@ -61,8 +61,32 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   toggleHabit: async (id, date) => {
-    const habit = await api.habits.toggle(id, date);
-    get().updateHabit(habit);
+    const prev = get().habits.find(h => h.id === id);
+
+    // Optimistic update — flip completedToday and adjust completions array
+    if (prev) {
+      const today = new Date().toISOString().split('T')[0];
+      const target = date ?? today;
+      const wasCompleted = prev.completions.includes(target);
+      get().updateHabit({
+        ...prev,
+        completions: wasCompleted
+          ? prev.completions.filter(d => d !== target)
+          : [...prev.completions, target],
+        completedToday: target === today ? !prev.completedToday : prev.completedToday,
+        completedThisWeek: wasCompleted
+          ? Math.max(0, prev.completedThisWeek - 1)
+          : prev.completedThisWeek + 1,
+      });
+    }
+
+    try {
+      const updated = await api.habits.toggle(id, date);
+      get().updateHabit(updated); // reconcile with authoritative server data
+    } catch (err) {
+      if (prev) get().updateHabit(prev); // rollback
+      throw err;
+    }
   },
 
   initAuth: async () => {

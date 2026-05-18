@@ -1,13 +1,22 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useStore } from './store/useStore';
 import { useSocket } from './hooks/useSocket';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
-import { Analytics } from './pages/Analytics';
-import { HeatmapPage } from './pages/HeatmapPage';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
+
+const Analytics   = lazy(() => import('./pages/Analytics').then(m => ({ default: m.Analytics })));
+const HeatmapPage = lazy(() => import('./pages/HeatmapPage').then(m => ({ default: m.HeatmapPage })));
+
+function PageLoader() {
+  return (
+    <div style={{ padding: '60px 0', display: 'flex', justifyContent: 'center' }}>
+      <div className="spinner" />
+    </div>
+  );
+}
 
 function AppLayout() {
   useSocket();
@@ -15,12 +24,14 @@ function AppLayout() {
     <div className="layout">
       <Sidebar />
       <main className="main-content">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/heatmap" element={<HeatmapPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/"          element={<Dashboard />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/heatmap"   element={<HeatmapPage />} />
+            <Route path="*"          element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </main>
     </div>
   );
@@ -49,15 +60,14 @@ export function App() {
     );
   }
 
-  // basename matches the GitHub Pages sub-path (/streakly); empty string for local dev
   const basename = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
 
   return (
     <BrowserRouter basename={basename}>
       <Routes>
-        <Route path="/login" element={token ? <Navigate to="/" replace /> : <Login />} />
+        <Route path="/login"    element={token ? <Navigate to="/" replace /> : <Login />} />
         <Route path="/register" element={token ? <Navigate to="/" replace /> : <Register />} />
-        <Route path="/*" element={<RequireAuth><AppLayout /></RequireAuth>} />
+        <Route path="/*"        element={<RequireAuth><AppLayout /></RequireAuth>} />
       </Routes>
     </BrowserRouter>
   );

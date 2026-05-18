@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 
 interface TooltipState {
   date: string;
@@ -22,13 +22,7 @@ function formatDate(str: string): string {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-// 5-level intensity (GitHub style) — for binary habit data level 1 = done, 0 = not done
-// but we vary the shade so the grid looks rich
-function cellFill(done: boolean, color: string): string {
-  return done ? color : 'var(--surface-2)';
-}
-
-export function MiniHeatmap({ completions, color, weeks = 16 }: Props) {
+export const MiniHeatmap = memo(function MiniHeatmap({ completions, color, weeks = 16 }: Props) {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const set = new Set(completions);
 
@@ -45,7 +39,6 @@ export function MiniHeatmap({ completions, color, weeks = 16 }: Props) {
     d.setDate(d.getDate() - i);
     days.push(toDateStr(d));
   }
-  // Pad right so last column ends today (Mon-aligned)
   const endPad = 7 - todayDow;
   for (let i = 0; i < endPad; i++) days.push(null);
 
@@ -54,6 +47,7 @@ export function MiniHeatmap({ completions, color, weeks = 16 }: Props) {
 
   const svgW = cols.length * (CELL + GAP) - GAP;
   const svgH = 7 * (CELL + GAP) - GAP;
+  const todayStr = toDateStr(today);
 
   const handleMouseEnter = (e: React.MouseEvent<SVGRectElement>, date: string, done: boolean) => {
     const r = (e.target as SVGRectElement).getBoundingClientRect();
@@ -67,15 +61,23 @@ export function MiniHeatmap({ completions, color, weeks = 16 }: Props) {
           col.map((date, ri) => {
             if (!date) return null;
             const done = set.has(date);
+            const isFuture = date > todayStr;
             return (
               <rect
                 key={`${ci}-${ri}`}
                 x={ci * (CELL + GAP)}
                 y={ri * (CELL + GAP)}
-                width={CELL} height={CELL} rx={2}
-                fill={cellFill(done, color)}
-                opacity={date > toDateStr(today) ? 0 : done ? 1 : 0.55}
-                style={{ cursor: 'pointer', transition: 'opacity .1s' }}
+                width={CELL}
+                height={CELL}
+                rx={2}
+                fill={done ? color : 'var(--surface-2)'}
+                opacity={isFuture ? 0 : done ? 1 : 0.55}
+                style={{
+                  cursor: 'pointer',
+                  transition: 'opacity .15s, fill .2s',
+                  /* stagger fade-in: column index drives delay */
+                  animation: `heatmapIn .3s ${ci * 12}ms both`,
+                }}
                 onMouseEnter={e => handleMouseEnter(e, date, done)}
                 onMouseLeave={() => setTooltip(null)}
               />
@@ -87,11 +89,7 @@ export function MiniHeatmap({ completions, color, weeks = 16 }: Props) {
       {tooltip && (
         <div
           className="tooltip-box"
-          style={{
-            left: tooltip.x,
-            top: tooltip.y - 8,
-            transform: 'translate(-50%, -100%)',
-          }}
+          style={{ left: tooltip.x, top: tooltip.y - 8, transform: 'translate(-50%, -100%)' }}
         >
           <span style={{ opacity: .7 }}>{formatDate(tooltip.date)}</span>
           {'  '}
@@ -102,4 +100,12 @@ export function MiniHeatmap({ completions, color, weeks = 16 }: Props) {
       )}
     </div>
   );
-}
+}, (prev, next) => {
+  // Only re-render when completions actually change or color changes
+  return (
+    prev.color === next.color &&
+    prev.weeks === next.weeks &&
+    prev.completions.length === next.completions.length &&
+    prev.completions[prev.completions.length - 1] === next.completions[next.completions.length - 1]
+  );
+});

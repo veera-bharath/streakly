@@ -1,16 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import {
   BarChart, Bar, LineChart, Line,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
 } from 'recharts';
-import { api } from '../api/client';
-import { WeeklyData, MonthlyData, StreakData, AnalyticsOverview, AnalyticsTrends } from '../types';
-import { useStore } from '../store/useStore';
+import { useAnalytics } from '../hooks/useAnalytics';
 import { ChartSkeleton, Skeleton } from '../components/Skeleton';
 import { Habit } from '../types';
 
 /* ─── Helpers ─── */
-
 function last30Days(): string[] {
   return Array.from({ length: 30 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (29 - i));
@@ -54,7 +51,7 @@ function InsightCard({ icon, label, value, sub, color }: { icon: string; label: 
   );
 }
 
-/* ─── Smart Insight Row ─── */
+/* ─── Smart Insights ─── */
 function SmartInsightsBanner({ insights }: { insights: string[] }) {
   if (!insights.length) return null;
   return (
@@ -67,7 +64,9 @@ function SmartInsightsBanner({ insights }: { insights: string[] }) {
         {insights.map((insight, i) => (
           <div
             key={i}
+            className="anim-up"
             style={{
+              animationDelay: `${i * 80}ms`,
               display: 'flex', alignItems: 'flex-start', gap: 10,
               padding: '9px 12px',
               background: 'var(--surface-2)', borderRadius: 'var(--radius)',
@@ -83,43 +82,42 @@ function SmartInsightsBanner({ insights }: { insights: string[] }) {
   );
 }
 
+/* ─── Empty state ─── */
+function EmptyAnalytics() {
+  return (
+    <div className="empty-state anim-up">
+      <div className="empty-state-icon">📊</div>
+      <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-.02em', marginBottom: 8 }}>No data yet</div>
+      <div style={{ color: 'var(--text-2)', fontSize: 14, maxWidth: 280, margin: '0 auto', lineHeight: 1.6 }}>
+        Start completing habits to unlock analytics and insights.
+      </div>
+    </div>
+  );
+}
+
 /* ─── Component ─── */
 export function Analytics() {
-  const { habits, fetchHabits } = useStore();
-  const [weekly, setWeekly]     = useState<WeeklyData[]>([]);
-  const [monthly, setMonthly]   = useState<MonthlyData[]>([]);
-  const [streaks, setStreaks]   = useState<StreakData[]>([]);
-  const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
-  const [trends, setTrends]     = useState<AnalyticsTrends | null>(null);
-  const [loading, setLoading]   = useState(true);
+  const { weekly, monthly, streaks, overview, trends, habits, loading, error } = useAnalytics();
 
-  useEffect(() => {
-    fetchHabits();
-    Promise.all([
-      api.analytics.weekly(),
-      api.analytics.monthly(),
-      api.analytics.streaks(),
-      api.analytics.overview(),
-      api.analytics.trends(),
-    ])
-      .then(([w, m, s, ov, tr]) => {
-        setWeekly(w.data);
-        setMonthly(m.data);
-        setStreaks(s);
-        setOverview(ov);
-        setTrends(tr);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [fetchHabits]);
+  const days30 = useMemo(() => last30Days(), []);
+  const ratedHabits = useMemo(() =>
+    habits.map(h => ({ ...h, rate: habitRate(h, days30) })),
+    [habits, days30]
+  );
 
-  const days30 = last30Days();
-  const ratedHabits = habits.map(h => ({ ...h, rate: habitRate(h, days30) }));
   const best  = ratedHabits.reduce<typeof ratedHabits[0] | null>((a, b) => !a || b.rate > a.rate ? b : a, null);
   const worst = ratedHabits.reduce<typeof ratedHabits[0] | null>((a, b) => !a || b.rate < a.rate ? b : a, null);
 
-  const weeklyAvg  = weekly.length  ? Math.round(weekly.reduce((s, d) => s + d.percentage, 0) / weekly.length) : 0;
+  const weeklyAvg  = weekly.length  ? Math.round(weekly.reduce((s, d)  => s + d.percentage, 0) / weekly.length)  : 0;
   const monthlyAvg = monthly.length ? Math.round(monthly.reduce((s, d) => s + d.percentage, 0) / monthly.length) : 0;
+
+  if (error) {
+    return (
+      <div style={{ textAlign: 'center', padding: '64px 0', color: 'var(--red)', fontSize: 14 }}>
+        Failed to load analytics: {error}
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -137,12 +135,12 @@ export function Analytics() {
             <Skeleton width={80} height={11} />
           </div>
         )) : [
-          { label: '7-Day Avg', value: `${overview?.completionRate7d ?? weeklyAvg}%`, color: 'var(--green)', icon: '📈' },
-          { label: '30-Day Avg', value: `${overview?.completionRate30d ?? monthlyAvg}%`, color: 'var(--blue)', icon: '📅' },
-          { label: 'Consistency', value: overview ? `${overview.consistencyScore}%` : '—', color: 'var(--purple)', icon: '🎯' },
-          { label: 'Active Streaks', value: overview ? `${overview.activeStreaks}/${overview.totalHabits}` : '—', color: 'var(--orange)', icon: '🔥' },
-        ].map(({ label, value, color, icon }) => (
-          <div key={label} className="stat-card" style={{ padding: '18px 20px', gap: 10 }}>
+          { label: '7-Day Avg',     value: `${overview?.completionRate7d  ?? weeklyAvg}%`,                 color: 'var(--green)',  icon: '📈' },
+          { label: '30-Day Avg',    value: `${overview?.completionRate30d ?? monthlyAvg}%`,                color: 'var(--blue)',   icon: '📅' },
+          { label: 'Consistency',   value: overview ? `${overview.consistencyScore}%` : '—',              color: 'var(--purple)', icon: '🎯' },
+          { label: 'Active Streaks',value: overview ? `${overview.activeStreaks}/${overview.totalHabits}` : '—', color: 'var(--orange)', icon: '🔥' },
+        ].map(({ label, value, color, icon }, i) => (
+          <div key={label} className="stat-card anim-up" style={{ padding: '18px 20px', gap: 10, animationDelay: `${i * 60}ms` }}>
             <div style={{ fontSize: 24 }}>{icon}</div>
             <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-.04em', color }}>{value}</div>
             <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-2)' }}>{label}</div>
@@ -150,7 +148,6 @@ export function Analytics() {
         ))}
       </div>
 
-      {/* ── Smart Insights (from API) ── */}
       {!loading && overview && <SmartInsightsBanner insights={overview.insights} />}
 
       {/* ── Insight cards ── */}
@@ -183,7 +180,7 @@ export function Analytics() {
         </div>
       )}
 
-      {/* ── By Day of Week chart (from trends) ── */}
+      {/* ── By Day of Week ── */}
       {!loading && trends && trends.byDayOfWeek.length > 0 && (
         <div className="card" style={{ padding: 24, marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -234,7 +231,7 @@ export function Analytics() {
         )}
       </div>
 
-      {/* ── Monthly line chart ── */}
+      {/* ── 30-Day Trend ── */}
       <div className="card" style={{ padding: 24, marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
           <div>
@@ -262,7 +259,7 @@ export function Analytics() {
         )}
       </div>
 
-      {/* ── Streak board ── */}
+      {/* ── Streak Board ── */}
       {!loading && streaks.length > 0 && (
         <div className="card" style={{ padding: 24 }}>
           <div style={{ marginBottom: 18 }}>
@@ -273,11 +270,17 @@ export function Analytics() {
             {[...streaks].sort((a, b) => b.current - a.current).map((s, i) => {
               const rate30 = ratedHabits.find(h => h.id === s.id)?.rate ?? 0;
               return (
-                <div key={s.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px',
-                  background: i === 0 ? 'var(--amber-bg)' : 'var(--surface-2)',
-                  borderRadius: 'var(--radius)', borderLeft: `3px solid ${s.color}`,
-                }}>
+                <div
+                  key={s.id}
+                  className="anim-up"
+                  style={{
+                    animationDelay: `${i * 50}ms`,
+                    display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px',
+                    background: i === 0 ? 'var(--amber-bg)' : 'var(--surface-2)',
+                    borderRadius: 'var(--radius)', borderLeft: `3px solid ${s.color}`,
+                    transition: 'transform .15s, box-shadow .15s',
+                  }}
+                >
                   <span style={{ fontSize: 20, width: 28, textAlign: 'center' }}>{s.icon}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -289,10 +292,7 @@ export function Analytics() {
                   </div>
                   {i === 0 && <span style={{ fontSize: 14 }}>🏆</span>}
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{
-                      fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 800, lineHeight: 1,
-                      color: s.current > 0 ? s.color : 'var(--text-3)',
-                    }}>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 800, lineHeight: 1, color: s.current > 0 ? s.color : 'var(--text-3)' }}>
                       {s.current}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>days</div>
@@ -304,11 +304,7 @@ export function Analytics() {
         </div>
       )}
 
-      {!loading && streaks.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-3)', fontSize: 14 }}>
-          No habit data yet. Start completing habits to see analytics.
-        </div>
-      )}
+      {!loading && streaks.length === 0 && <EmptyAnalytics />}
     </div>
   );
 }

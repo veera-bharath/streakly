@@ -87,15 +87,17 @@ input, textarea { font-family: var(--font); outline: none; }
 }
 
 /* ─── Animations ─── */
-@keyframes fadeUp    { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:translateY(0) } }
-@keyframes fadeIn    { from { opacity:0 } to { opacity:1 } }
-@keyframes shimmer   { from { background-position: 200% 0 } to { background-position: -200% 0 } }
-@keyframes checkPop  { 0%,100%{transform:scale(1)} 40%{transform:scale(1.3)} 70%{transform:scale(.9)} }
-@keyframes progressFill { from { width: 0 } to { width: var(--target-w) } }
-@keyframes slideDown { from { opacity:0; transform:translateY(-6px) } to { opacity:1; transform:translateY(0) } }
-@keyframes spin      { to { transform: rotate(360deg) } }
+@keyframes fadeUp     { from { opacity:0; transform:translateY(10px) } to { opacity:1 } }
+@keyframes fadeIn     { from { opacity:0 } to { opacity:1 } }
+@keyframes shimmer    { from { background-position: 200% 0 } to { background-position: -200% 0 } }
+@keyframes checkPop   { 0%,100%{transform:scale(1)} 30%{transform:scale(1.4)} 60%{transform:scale(.88)} 80%{transform:scale(1.08)} }
+@keyframes slideDown  { from { opacity:0; transform:translateY(-6px) } to { opacity:1; transform:translateY(0) } }
+@keyframes spin       { to { transform: rotate(360deg) } }
+@keyframes heatmapIn  { from { opacity:0; transform:scale(.6) } to { opacity:1; transform:scale(1) } }
+@keyframes pulse      { 0%,100%{box-shadow:0 0 0 0 currentColor} 50%{box-shadow:0 0 0 6px transparent} }
+@keyframes bounceIn   { 0%{opacity:0;transform:scale(.5)} 60%{transform:scale(1.15)} 80%{transform:scale(.95)} 100%{opacity:1;transform:scale(1)} }
 
-.anim-up { animation: fadeUp .3s ease both; }
+.anim-up { animation: fadeUp .3s ease backwards; }
 .anim-in { animation: fadeIn .2s ease both; }
 
 /* ─── Skeleton ─── */
@@ -157,7 +159,7 @@ input, textarea { font-family: var(--font); outline: none; }
   box-shadow: var(--shadow-sm);
 }
 .card-hover { transition: box-shadow .2s, transform .15s; }
-.card-hover:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+.card-hover:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
 
 /* ─── Stat Card ─── */
 .stat-card {
@@ -167,10 +169,14 @@ input, textarea { font-family: var(--font); outline: none; }
   padding: 20px 22px;
   box-shadow: var(--shadow-sm);
   display: flex; flex-direction: column; gap: 12px;
-  transition: box-shadow .2s, transform .15s;
+  transition: box-shadow .2s, transform .15s, border-color .2s;
   position: relative; overflow: hidden;
 }
-.stat-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+.stat-card:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-2px);
+  border-color: var(--border-2);
+}
 .stat-card .icon-wrap {
   width: 40px; height: 40px; border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
@@ -251,7 +257,26 @@ input, textarea { font-family: var(--font); outline: none; }
 }
 .progress-fill {
   height: 100%; border-radius: 99px;
-  transition: width .8s cubic-bezier(.4,0,.2,1);
+  transition: width .7s cubic-bezier(.4,0,.2,1);
+  will-change: width;
+}
+
+/* ─── Empty state ─── */
+.empty-state {
+  text-align: center; padding: 64px 24px;
+  border: 1.5px dashed var(--border-2); border-radius: var(--radius-xl);
+}
+.empty-state-icon {
+  font-size: 48px; margin-bottom: 16px;
+  animation: bounceIn .6s cubic-bezier(.4,0,.2,1) both;
+}
+
+/* ─── Habit toggle hover ─── */
+.habit-toggle:not(:disabled):hover {
+  transform: scale(1.1);
+}
+.habit-toggle:not(:disabled):active {
+  transform: scale(.92);
 }
 
 /* ─── Loading spinner ─── */
