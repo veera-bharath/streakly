@@ -4,13 +4,12 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
 } from 'recharts';
 import { api } from '../api/client';
-import { WeeklyData, MonthlyData, StreakData } from '../types';
+import { WeeklyData, MonthlyData, StreakData, AnalyticsOverview, AnalyticsTrends } from '../types';
 import { useStore } from '../store/useStore';
 import { ChartSkeleton, Skeleton } from '../components/Skeleton';
 import { Habit } from '../types';
 
 /* ─── Helpers ─── */
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function last30Days(): string[] {
   return Array.from({ length: 30 }, (_, i) => {
@@ -24,26 +23,18 @@ function habitRate(h: Habit, days: string[]): number {
   return days.length > 0 ? Math.round((n / days.length) * 100) : 0;
 }
 
-function mostConsistentDay(habits: Habit[]): string {
-  if (!habits.length) return '—';
-  const counts = Array(7).fill(0);
-  habits.forEach(h => h.completions.forEach(d => counts[new Date(d + 'T00:00:00').getDay()]++));
-  return DAY_NAMES[counts.indexOf(Math.max(...counts))];
-}
-
 function shortDate(d: string) {
   const [, m, day] = d.split('-');
   return `${parseInt(day)}/${parseInt(m)}`;
 }
 
-/* ─── Custom tooltip ─── */
+/* ─── Tooltips ─── */
 const ChartTooltip = ({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) => {
   if (!active || !payload?.length) return null;
   return (
     <div style={{
       background: 'var(--surface)', border: '1px solid var(--border)',
-      borderRadius: 'var(--radius)', padding: '8px 14px', boxShadow: 'var(--shadow)',
-      fontSize: 13,
+      borderRadius: 'var(--radius)', padding: '8px 14px', boxShadow: 'var(--shadow)', fontSize: 13,
     }}>
       <div style={{ color: 'var(--text-2)', marginBottom: 3 }}>{label}</div>
       <div style={{ fontWeight: 700, color: 'var(--green)', fontFamily: 'var(--font-mono)' }}>{payload[0].value}%</div>
@@ -63,28 +54,69 @@ function InsightCard({ icon, label, value, sub, color }: { icon: string; label: 
   );
 }
 
+/* ─── Smart Insight Row ─── */
+function SmartInsightsBanner({ insights }: { insights: string[] }) {
+  if (!insights.length) return null;
+  return (
+    <div className="card" style={{ padding: '20px 24px', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <span style={{ fontSize: 18 }}>💡</span>
+        <div style={{ fontWeight: 700, fontSize: 15 }}>Smart Insights</div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {insights.map((insight, i) => (
+          <div
+            key={i}
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10,
+              padding: '9px 12px',
+              background: 'var(--surface-2)', borderRadius: 'var(--radius)',
+              fontSize: 13, color: 'var(--text)', lineHeight: 1.5,
+            }}
+          >
+            <span style={{ color: 'var(--amber)', flexShrink: 0, marginTop: 1 }}>›</span>
+            {insight}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Component ─── */
 export function Analytics() {
   const { habits, fetchHabits } = useStore();
-  const [weekly, setWeekly]   = useState<WeeklyData[]>([]);
-  const [monthly, setMonthly] = useState<MonthlyData[]>([]);
-  const [streaks, setStreaks] = useState<StreakData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [weekly, setWeekly]     = useState<WeeklyData[]>([]);
+  const [monthly, setMonthly]   = useState<MonthlyData[]>([]);
+  const [streaks, setStreaks]   = useState<StreakData[]>([]);
+  const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
+  const [trends, setTrends]     = useState<AnalyticsTrends | null>(null);
+  const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
     fetchHabits();
-    Promise.all([api.analytics.weekly(), api.analytics.monthly(), api.analytics.streaks()])
-      .then(([w, m, s]) => { setWeekly(w.data); setMonthly(m.data); setStreaks(s); })
+    Promise.all([
+      api.analytics.weekly(),
+      api.analytics.monthly(),
+      api.analytics.streaks(),
+      api.analytics.overview(),
+      api.analytics.trends(),
+    ])
+      .then(([w, m, s, ov, tr]) => {
+        setWeekly(w.data);
+        setMonthly(m.data);
+        setStreaks(s);
+        setOverview(ov);
+        setTrends(tr);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [fetchHabits]);
 
-  /* ── Insights computed from local habit data ── */
   const days30 = last30Days();
   const ratedHabits = habits.map(h => ({ ...h, rate: habitRate(h, days30) }));
   const best  = ratedHabits.reduce<typeof ratedHabits[0] | null>((a, b) => !a || b.rate > a.rate ? b : a, null);
   const worst = ratedHabits.reduce<typeof ratedHabits[0] | null>((a, b) => !a || b.rate < a.rate ? b : a, null);
-  const consistDay = mostConsistentDay(habits);
 
   const weeklyAvg  = weekly.length  ? Math.round(weekly.reduce((s, d) => s + d.percentage, 0) / weekly.length) : 0;
   const monthlyAvg = monthly.length ? Math.round(monthly.reduce((s, d) => s + d.percentage, 0) / monthly.length) : 0;
@@ -105,10 +137,10 @@ export function Analytics() {
             <Skeleton width={80} height={11} />
           </div>
         )) : [
-          { label: '7-Day Avg', value: `${weeklyAvg}%`, color: 'var(--green)', icon: '📈' },
-          { label: '30-Day Avg', value: `${monthlyAvg}%`, color: 'var(--blue)', icon: '📅' },
-          { label: 'Habits tracked', value: `${habits.length}`, color: 'var(--amber)', icon: '📌' },
-          { label: 'Top streak', value: streaks.length ? `${Math.max(...streaks.map(s => s.current))}d` : '—', color: 'var(--orange)', icon: '🔥' },
+          { label: '7-Day Avg', value: `${overview?.completionRate7d ?? weeklyAvg}%`, color: 'var(--green)', icon: '📈' },
+          { label: '30-Day Avg', value: `${overview?.completionRate30d ?? monthlyAvg}%`, color: 'var(--blue)', icon: '📅' },
+          { label: 'Consistency', value: overview ? `${overview.consistencyScore}%` : '—', color: 'var(--purple)', icon: '🎯' },
+          { label: 'Active Streaks', value: overview ? `${overview.activeStreaks}/${overview.totalHabits}` : '—', color: 'var(--orange)', icon: '🔥' },
         ].map(({ label, value, color, icon }) => (
           <div key={label} className="stat-card" style={{ padding: '18px 20px', gap: 10 }}>
             <div style={{ fontSize: 24 }}>{icon}</div>
@@ -117,6 +149,9 @@ export function Analytics() {
           </div>
         ))}
       </div>
+
+      {/* ── Smart Insights (from API) ── */}
+      {!loading && overview && <SmartInsightsBanner insights={overview.insights} />}
 
       {/* ── Insight cards ── */}
       {habits.length > 0 && !loading && (
@@ -137,12 +172,39 @@ export function Analytics() {
               color="#dc2626"
             />
           )}
-          <InsightCard
-            icon="📆" label="Most Consistent Day"
-            value={consistDay}
-            sub="Based on all completions"
-            color="#2563eb"
-          />
+          {overview && (
+            <InsightCard
+              icon="📆" label="Most Consistent Day"
+              value={overview.bestDayOfWeek}
+              sub={`Weakest: ${overview.worstDayOfWeek}`}
+              color="#2563eb"
+            />
+          )}
+        </div>
+      )}
+
+      {/* ── By Day of Week chart (from trends) ── */}
+      {!loading && trends && trends.byDayOfWeek.length > 0 && (
+        <div className="card" style={{ padding: 24, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>By Day of Week</div>
+              <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>Average completion rate per weekday (90 days)</div>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={trends.byDayOfWeek} barSize={32} barCategoryGap="25%">
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="day" tick={{ fill: 'var(--text-3)', fontSize: 11, fontFamily: 'Plus Jakarta Sans' }} axisLine={false} tickLine={false} />
+              <YAxis domain={[0, 100]} tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} width={36} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--surface-2)', radius: 4 }} />
+              <Bar dataKey="avg" radius={[5, 5, 0, 0]}>
+                {trends.byDayOfWeek.map((d, i) => (
+                  <Cell key={i} fill={d.avg >= 70 ? 'var(--green)' : d.avg >= 40 ? 'var(--amber)' : '#f87171'} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       )}
 
@@ -160,9 +222,9 @@ export function Analytics() {
             <BarChart data={weekly.map(d => ({ ...d, day: shortDate(d.date) }))} barSize={36} barCategoryGap="30%">
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis dataKey="day" tick={{ fill: 'var(--text-3)', fontSize: 11, fontFamily: 'Plus Jakarta Sans' }} axisLine={false} tickLine={false} />
-              <YAxis domain={[0,100]} tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} width={36} />
+              <YAxis domain={[0, 100]} tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} width={36} />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--surface-2)', radius: 4 }} />
-              <Bar dataKey="percentage" radius={[5,5,0,0]}>
+              <Bar dataKey="percentage" radius={[5, 5, 0, 0]}>
                 {weekly.map((d, i) => (
                   <Cell key={i} fill={d.percentage >= 80 ? 'var(--green)' : d.percentage >= 50 ? 'var(--amber)' : '#f87171'} />
                 ))}
@@ -192,7 +254,7 @@ export function Analytics() {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis dataKey="day" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis domain={[0,100]} tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} width={36} />
+              <YAxis domain={[0, 100]} tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} width={36} />
               <Tooltip content={<ChartTooltip />} />
               <Line type="monotone" dataKey="percentage" stroke="var(--blue)" strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: 'var(--blue)', strokeWidth: 0 }} />
             </LineChart>
@@ -218,14 +280,19 @@ export function Analytics() {
                 }}>
                   <span style={{ fontSize: 20, width: 28, textAlign: 'center' }}>{s.icon}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div>
+                    <div style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {s.name}
+                    </div>
                     <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
                       {s.totalCompletions} total · best: {s.longest}d · 30d: {rate30}%
                     </div>
                   </div>
                   {i === 0 && <span style={{ fontSize: 14 }}>🏆</span>}
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 800, color: s.current > 0 ? s.color : 'var(--text-3)', lineHeight: 1 }}>
+                    <div style={{
+                      fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 800, lineHeight: 1,
+                      color: s.current > 0 ? s.color : 'var(--text-3)',
+                    }}>
                       {s.current}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>days</div>

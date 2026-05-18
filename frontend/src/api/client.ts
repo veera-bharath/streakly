@@ -1,4 +1,7 @@
-const BASE = '/api';
+import type { Habit, WeeklyData, MonthlyData, StreakData, HeatmapCell, AnalyticsOverview, AnalyticsTrends, FrequencyType } from '../types';
+
+// VITE_API_URL is set to the Render backend URL in production CI builds
+const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
 
 function getToken(): string | null {
   return localStorage.getItem('streakly_token');
@@ -34,20 +37,25 @@ export const api = {
     me: () => req<{ id: string; username: string; email: string }>('/auth/me'),
   },
   habits: {
-    list: () => req<import('../types').Habit[]>('/habits'),
-    create: (body: { name: string; description?: string; color?: string; icon?: string }) =>
-      req<import('../types').Habit>('/habits', { method: 'POST', body: JSON.stringify(body) }),
+    list: () => req<Habit[]>('/habits'),
+    create: (body: {
+      name: string;
+      description?: string;
+      color?: string;
+      icon?: string;
+      frequencyType?: FrequencyType;
+      frequencyTarget?: number;
+    }) => req<Habit>('/habits', { method: 'POST', body: JSON.stringify(body) }),
     delete: (id: string) => req<{ success: boolean }>(`/habits/${id}`, { method: 'DELETE' }),
     toggle: (id: string, date?: string) =>
-      req<import('../types').Habit>(`/habits/${id}/toggle`, {
-        method: 'POST',
-        body: JSON.stringify({ date }),
-      }),
+      req<Habit>(`/habits/${id}/toggle`, { method: 'POST', body: JSON.stringify({ date }) }),
   },
   analytics: {
-    weekly: () => req<{ data: import('../types').WeeklyData[]; habits: string[] }>('/analytics/weekly'),
-    monthly: () => req<{ data: import('../types').MonthlyData[] }>('/analytics/monthly'),
-    streaks: () => req<import('../types').StreakData[]>('/analytics/streaks'),
-    heatmap: () => req<import('../types').HeatmapCell[]>('/analytics/heatmap'),
+    weekly: () => req<{ data: WeeklyData[]; habits: string[] }>('/analytics/weekly'),
+    monthly: () => req<{ data: MonthlyData[] }>('/analytics/monthly'),
+    streaks: () => req<StreakData[]>('/analytics/streaks'),
+    heatmap: () => req<HeatmapCell[]>('/analytics/heatmap'),
+    overview: () => req<AnalyticsOverview>('/analytics/overview'),
+    trends: () => req<AnalyticsTrends>('/analytics/trends'),
   },
 };

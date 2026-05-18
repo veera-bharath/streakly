@@ -11,11 +11,16 @@ import { JWT_SECRET } from './middleware/auth';
 
 const app = express();
 const server = http.createServer(app);
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'https://veera-bharath.github.io',
+];
+
 const io = new Server(server, {
-  cors: { origin: 'http://localhost:5173', methods: ['GET', 'POST'] },
+  cors: { origin: ALLOWED_ORIGINS, methods: ['GET', 'POST'] },
 });
 
-app.use(cors({ origin: 'http://localhost:5173' }));
+app.use(cors({ origin: ALLOWED_ORIGINS }));
 app.use(express.json());
 
 app.use('/auth', authRouter);

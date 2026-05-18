@@ -1,12 +1,20 @@
 import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
+import { FrequencyType } from '../types';
 
 interface Props { onClose: () => void; }
+
+const FREQ_LABELS: Record<FrequencyType, string> = {
+  daily: 'Every day',
+  weekly: 'X times per week',
+};
 
 export function AddHabitModal({ onClose }: Props) {
   const { createHabit } = useStore();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [frequencyType, setFrequencyType] = useState<FrequencyType>('daily');
+  const [frequencyTarget, setFrequencyTarget] = useState(3);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -17,8 +25,13 @@ export function AddHabitModal({ onClose }: Props) {
     e.preventDefault();
     if (!name.trim()) { setError('Habit name is required'); return; }
     setLoading(true); setError('');
-    try { await createHabit(name.trim(), description.trim()); onClose(); }
-    catch (err) { setError(err instanceof Error ? err.message : 'Failed to create habit'); setLoading(false); }
+    try {
+      await createHabit(name.trim(), description.trim(), frequencyType, frequencyTarget);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create habit');
+      setLoading(false);
+    }
   };
 
   return (
@@ -45,25 +58,94 @@ export function AddHabitModal({ onClose }: Props) {
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: 6 }}>
               Habit Name *
             </label>
-            <input ref={inputRef} className="input" value={name} onChange={e => setName(e.target.value)}
-              placeholder="e.g., Morning run, Read 20 pages" maxLength={60} />
+            <input
+              ref={inputRef} className="input" value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g., Morning run, Read 20 pages" maxLength={60}
+            />
           </div>
+
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: 6 }}>
               Description
             </label>
-            <input className="input" value={description} onChange={e => setDescription(e.target.value)}
-              placeholder="Optional note or goal" maxLength={120} />
+            <input
+              className="input" value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Optional note or goal" maxLength={120}
+            />
           </div>
 
+          {/* Frequency type */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: 8 }}>
+              Frequency
+            </label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {(['daily', 'weekly'] as FrequencyType[]).map(ft => (
+                <button
+                  key={ft}
+                  type="button"
+                  onClick={() => setFrequencyType(ft)}
+                  style={{
+                    flex: 1, padding: '8px 12px', borderRadius: 'var(--radius)',
+                    border: `1.5px solid ${frequencyType === ft ? 'var(--green)' : 'var(--border)'}`,
+                    background: frequencyType === ft ? 'var(--green-bg)' : 'var(--surface-2)',
+                    color: frequencyType === ft ? 'var(--green)' : 'var(--text-2)',
+                    fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    transition: 'all .15s',
+                  }}
+                >
+                  {ft === 'daily' ? 'Daily' : 'Weekly'}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>
+              {FREQ_LABELS[frequencyType]}
+            </div>
+          </div>
+
+          {/* Target (only for weekly) */}
+          {frequencyType === 'weekly' && (
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: 8 }}>
+                Target — {frequencyTarget}x per week
+              </label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {[1, 2, 3, 4, 5, 6, 7].map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setFrequencyTarget(n)}
+                    style={{
+                      width: 36, height: 36, borderRadius: '50%',
+                      border: `1.5px solid ${frequencyTarget === n ? 'var(--blue)' : 'var(--border)'}`,
+                      background: frequencyTarget === n ? 'var(--blue)' : 'var(--surface-2)',
+                      color: frequencyTarget === n ? '#fff' : 'var(--text-2)',
+                      fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                      transition: 'all .15s',
+                    }}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {error && (
-            <div style={{ fontSize: 13, color: 'var(--red)', background: 'var(--red-bg)', padding: '9px 13px', borderRadius: 'var(--radius)', fontWeight: 500 }}>
+            <div style={{
+              fontSize: 13, color: 'var(--red)', background: 'var(--red-bg)',
+              padding: '9px 13px', borderRadius: 'var(--radius)', fontWeight: 500,
+            }}>
               {error}
             </div>
           )}
 
           <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-            <button type="button" className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>Cancel</button>
+            <button type="button" className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
+              Cancel
+            </button>
             <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} disabled={loading}>
               {loading ? 'Creating…' : 'Create Habit'}
             </button>

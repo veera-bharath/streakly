@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { User, Habit } from '../types';
+import { User, Habit, FrequencyType } from '../types';
 import { api } from '../api/client';
 
 interface Store {
@@ -14,7 +14,7 @@ interface Store {
   addHabit: (h: Habit) => void;
   updateHabit: (h: Habit) => void;
   removeHabit: (id: string) => void;
-  createHabit: (name: string, description?: string) => Promise<void>;
+  createHabit: (name: string, description?: string, frequencyType?: FrequencyType, frequencyTarget?: number) => Promise<void>;
   deleteHabit: (id: string) => Promise<void>;
   toggleHabit: (id: string, date?: string) => Promise<void>;
   initAuth: () => Promise<boolean>;
@@ -50,10 +50,9 @@ export const useStore = create<Store>((set, get) => ({
   updateHabit: (h) => set(s => ({ habits: s.habits.map(x => x.id === h.id ? h : x) })),
   removeHabit: (id) => set(s => ({ habits: s.habits.filter(x => x.id !== id) })),
 
-  createHabit: async (name, description) => {
-    await api.habits.create({ name, description });
-    // State update handled by socket 'habit:created' event — do not addHabit here
-    // to avoid the duplicate that occurs when socket fires before this awaits.
+  createHabit: async (name, description, frequencyType = 'daily', frequencyTarget = 1) => {
+    await api.habits.create({ name, description, frequencyType, frequencyTarget });
+    // State update via socket 'habit:created' to avoid duplicate
   },
 
   deleteHabit: async (id) => {

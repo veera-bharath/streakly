@@ -49,8 +49,11 @@ export function App() {
     );
   }
 
+  // basename matches the GitHub Pages sub-path (/streakly); empty string for local dev
+  const basename = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
+
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <Routes>
         <Route path="/login" element={token ? <Navigate to="/" replace /> : <Login />} />
         <Route path="/register" element={token ? <Navigate to="/" replace /> : <Register />} />

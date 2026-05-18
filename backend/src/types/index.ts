@@ -1,3 +1,5 @@
+export type FrequencyType = 'daily' | 'weekly';
+
 export interface User {
   id: string;
   username: string;
@@ -13,8 +15,15 @@ export interface Habit {
   description: string;
   color: string;
   icon: string;
-  completions: string[]; // ISO date strings "YYYY-MM-DD"
+  frequencyType: FrequencyType;
+  frequencyTarget: number;
+  completions: string[];
   createdAt: string;
+  streak: number;
+  longestStreak: number;
+  streakUnit: 'days' | 'weeks';
+  completedToday: boolean;
+  completedThisWeek: number;
 }
 
 export interface DB {
@@ -22,11 +31,31 @@ export interface DB {
   habits: Habit[];
 }
 
-export interface AuthRequest extends Express.Request {
-  userId?: string;
-}
-
 import { Request } from 'express';
 export interface AuthenticatedRequest extends Request {
   userId?: string;
+}
+
+export interface AnalyticsOverview {
+  completionRate7d: number;
+  completionRate30d: number;
+  bestDayOfWeek: string;
+  worstDayOfWeek: string;
+  consistencyScore: number;
+  insights: string[];
+  totalHabits: number;
+  activeStreaks: number;
+}
+
+export interface TrendPoint {
+  date: string;
+  completed: number;
+  total: number;
+  percentage: number;
+}
+
+export interface AnalyticsTrends {
+  weekly: TrendPoint[];
+  monthly: TrendPoint[];
+  byDayOfWeek: { day: string; avg: number }[];
 }

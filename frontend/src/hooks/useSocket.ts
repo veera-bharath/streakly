@@ -11,7 +11,8 @@ export function useSocket() {
   useEffect(() => {
     if (!token) { socket?.disconnect(); socket = null; return; }
 
-    socket = io('http://localhost:3001', { auth: { token } });
+    const wsUrl = (import.meta.env.VITE_WS_URL as string | undefined) ?? 'http://localhost:3001';
+    socket = io(wsUrl, { auth: { token } });
 
     socket.on('habit:created', (h: Habit) => addHabit(h));
     socket.on('habit:toggled', (h: Habit) => updateHabit(h));
