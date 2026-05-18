@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { FrequencyType } from '../types';
 
@@ -50,7 +51,9 @@ export function AddHabitModal({ onClose }: Props) {
             <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-.02em' }}>New Habit</div>
             <div style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 3 }}>Build something that lasts</div>
           </div>
-          <button onClick={onClose} className="btn-icon" style={{ color: 'var(--text-3)', fontSize: 18 }}>✕</button>
+          <button onClick={onClose} className="btn-icon" style={{ color: 'var(--text-3)' }}>
+            <X size={18} />
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

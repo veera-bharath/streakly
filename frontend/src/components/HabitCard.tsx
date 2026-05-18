@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, memo } from 'react';
+import { Flame, MoreHorizontal, Check, AlertCircle } from 'lucide-react';
 import { Habit } from '../types';
 import { useStore } from '../store/useStore';
 import { MiniHeatmap } from './MiniHeatmap';
@@ -36,6 +37,7 @@ function UndoToast({ onUndo, onDismiss }: { onUndo: () => void; onDismiss: () =>
     >
       <div style={{ position: 'absolute', bottom: 0, left: 0, height: 2, background: 'var(--green)', width: `${progress}%`, transition: 'width 50ms linear', opacity: 0.6 }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Check size={14} color="var(--green)" strokeWidth={2.5} />
         <span style={{ fontSize: 13, color: 'var(--green)', fontWeight: 600, flex: 1 }}>Marked complete</span>
         <button className="btn btn-sm btn-ghost" onClick={onUndo} style={{ color: 'var(--green)', borderColor: 'var(--green)', padding: '3px 10px' }}>
           Undo
@@ -60,7 +62,6 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
   const weekTarget   = habit.frequencyTarget;
   const weeklyDone   = weekProgress >= weekTarget;
 
-  // Show undo toast when habit goes incomplete → complete
   useEffect(() => {
     if (!prevCompletedToday.current && habit.completedToday) setShowUndoToast(true);
     prevCompletedToday.current = habit.completedToday;
@@ -73,7 +74,6 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
     try {
       await toggleHabit(habit.id);
     } catch {
-      // Optimistic update already rolled back in store; show brief error flash
       setToggleError(true);
       setTimeout(() => setToggleError(false), 1800);
     } finally {
@@ -126,7 +126,6 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
               background: done ? habit.color : toggleError ? 'var(--red-bg)' : 'transparent',
               color: '#fff',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, fontWeight: 700,
               cursor: toggling ? 'wait' : 'pointer',
               animation: done && !toggling ? 'checkPop .35s ease' : 'none',
               boxShadow: done ? `0 2px 8px ${habit.color}55` : 'none',
@@ -135,18 +134,16 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
           >
             {toggling
               ? <span style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid #fff', borderTopColor: 'transparent', display: 'block', animation: 'spin .6s linear infinite' }} />
-              : done ? '✓' : ''}
+              : done
+                ? <Check size={15} strokeWidth={3} />
+                : null
+            }
           </button>
 
           {/* Name + description */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{
-                fontSize: 15, fontWeight: 700, letterSpacing: '-.01em',
-                textDecoration: done ? 'none' : 'none',
-                opacity: done ? 0.85 : 1,
-                transition: 'opacity .2s',
-              }}>
+              <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.01em', opacity: done ? 0.85 : 1, transition: 'opacity .2s' }}>
                 {habit.icon} {habit.name}
               </span>
               {isWeekly ? (
@@ -159,10 +156,15 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
                     transition: 'all .2s',
                   }}
                 >
-                  {weeklyDone ? '✓ ' : ''}{weekProgress}/{weekTarget}×wk
+                  {weeklyDone && <Check size={10} strokeWidth={3} style={{ marginRight: 2 }} />}
+                  {weekProgress}/{weekTarget}×wk
                 </span>
               ) : (
-                done && <span className="badge badge-green anim-in">✓ Done</span>
+                done && (
+                  <span className="badge badge-green anim-in" style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                    <Check size={10} strokeWidth={3} /> Done
+                  </span>
+                )
               )}
             </div>
             {habit.description && (
@@ -175,8 +177,9 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
           {/* Streak + menu */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 800, lineHeight: 1, color: habit.streak > 0 ? habit.color : 'var(--text-3)' }}>
-                {habit.streak > 0 && <span style={{ fontSize: 14 }}>🔥</span>} {habit.streak}
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 800, lineHeight: 1, color: habit.streak > 0 ? habit.color : 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                {habit.streak > 0 && <Flame size={16} color="var(--orange)" strokeWidth={2} />}
+                {habit.streak}
               </div>
               <div style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', letterSpacing: '.04em' }}>
                 {streakLabel}
@@ -188,7 +191,7 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
               onClick={() => setShowDelete(s => !s)}
               style={{ color: showDelete ? 'var(--red)' : 'var(--text-3)', background: showDelete ? 'var(--red-bg)' : 'transparent' }}
             >
-              ···
+              <MoreHorizontal size={18} />
             </button>
           </div>
         </div>
@@ -196,7 +199,8 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
 
       {/* Error flash */}
       {toggleError && (
-        <div className="anim-in" style={{ margin: '10px 20px 0', padding: '8px 12px', background: 'var(--red-bg)', borderRadius: 'var(--radius)', border: '1px solid #fca5a5', fontSize: 13, color: 'var(--red)', fontWeight: 500 }}>
+        <div className="anim-in" style={{ margin: '10px 20px 0', padding: '8px 12px', background: 'var(--red-bg)', borderRadius: 'var(--radius)', border: '1px solid #fca5a5', fontSize: 13, color: 'var(--red)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <AlertCircle size={14} />
           Failed to update — please try again.
         </div>
       )}
@@ -257,14 +261,11 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
       </div>
     </div>
   );
-}, (prev, next) => {
-  // Custom comparator — only re-render when habit data actually changed
-  return (
-    prev.habit.id               === next.habit.id &&
-    prev.habit.completedToday   === next.habit.completedToday &&
-    prev.habit.completedThisWeek === next.habit.completedThisWeek &&
-    prev.habit.streak           === next.habit.streak &&
-    prev.habit.completions.length === next.habit.completions.length &&
-    prev.animDelay              === next.animDelay
-  );
-});
+}, (prev, next) => (
+  prev.habit.id                === next.habit.id &&
+  prev.habit.completedToday    === next.habit.completedToday &&
+  prev.habit.completedThisWeek === next.habit.completedThisWeek &&
+  prev.habit.streak            === next.habit.streak &&
+  prev.habit.completions.length === next.habit.completions.length &&
+  prev.animDelay               === next.animDelay
+));

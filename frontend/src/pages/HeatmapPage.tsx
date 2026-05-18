@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Grid3x3 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Skeleton } from '../components/Skeleton';
 
@@ -166,7 +167,7 @@ export function HeatmapPage() {
           textAlign: 'center', padding: '64px 24px',
           border: '1.5px dashed var(--border-2)', borderRadius: 'var(--radius-xl)',
         }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>▦</div>
+          <div style={{ marginBottom: 16 }}><Grid3x3 size={48} color="var(--text-3)" strokeWidth={1.25} /></div>
           <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>No data yet</div>
           <div style={{ color: 'var(--text-2)', fontSize: 14 }}>Add habits and complete them to see your contribution map.</div>
         </div>

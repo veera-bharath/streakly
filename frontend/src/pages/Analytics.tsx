@@ -3,6 +3,10 @@ import {
   BarChart, Bar, LineChart, Line,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
 } from 'recharts';
+import {
+  TrendingUp, Calendar, Target, Flame,
+  Lightbulb, Trophy, TrendingDown, CalendarDays, BarChart2,
+} from 'lucide-react';
 import { useAnalytics } from '../hooks/useAnalytics';
 import { ChartSkeleton, Skeleton } from '../components/Skeleton';
 import { Habit } from '../types';
@@ -40,10 +44,12 @@ const ChartTooltip = ({ active, payload, label }: { active?: boolean; payload?: 
 };
 
 /* ─── Insight Card ─── */
-function InsightCard({ icon, label, value, sub, color }: { icon: string; label: string; value: string; sub?: string; color: string }) {
+function InsightCard({ Icon, iconColor, label, value, sub, bg }: {
+  Icon: React.ElementType; iconColor: string; label: string; value: string; sub?: string; bg: string;
+}) {
   return (
-    <div className="insight-card" style={{ background: `${color}10`, borderColor: `${color}25` }}>
-      <div style={{ fontSize: 22, marginBottom: 4 }}>{icon}</div>
+    <div className="insight-card" style={{ background: bg, borderColor: `${iconColor}25` }}>
+      <Icon size={22} color={iconColor} strokeWidth={1.75} style={{ marginBottom: 4 }} />
       <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{label}</div>
       <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-.02em', color: 'var(--text)', marginTop: 2 }}>{value}</div>
       {sub && <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{sub}</div>}
@@ -57,7 +63,7 @@ function SmartInsightsBanner({ insights }: { insights: string[] }) {
   return (
     <div className="card" style={{ padding: '20px 24px', marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <span style={{ fontSize: 18 }}>💡</span>
+        <Lightbulb size={18} color="var(--amber)" strokeWidth={2} />
         <div style={{ fontWeight: 700, fontSize: 15 }}>Smart Insights</div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -86,7 +92,9 @@ function SmartInsightsBanner({ insights }: { insights: string[] }) {
 function EmptyAnalytics() {
   return (
     <div className="empty-state anim-up">
-      <div className="empty-state-icon">📊</div>
+      <div className="empty-state-icon">
+        <BarChart2 size={48} color="var(--text-3)" strokeWidth={1.5} />
+      </div>
       <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-.02em', marginBottom: 8 }}>No data yet</div>
       <div style={{ color: 'var(--text-2)', fontSize: 14, maxWidth: 280, margin: '0 auto', lineHeight: 1.6 }}>
         Start completing habits to unlock analytics and insights.
@@ -119,6 +127,13 @@ export function Analytics() {
     );
   }
 
+  const summaryCards = [
+    { label: '7-Day Avg',     value: `${overview?.completionRate7d  ?? weeklyAvg}%`,                 Icon: TrendingUp,   color: 'var(--green)' },
+    { label: '30-Day Avg',    value: `${overview?.completionRate30d ?? monthlyAvg}%`,                Icon: Calendar,     color: 'var(--blue)' },
+    { label: 'Consistency',   value: overview ? `${overview.consistencyScore}%` : '—',              Icon: Target,       color: 'var(--purple)' },
+    { label: 'Active Streaks',value: overview ? `${overview.activeStreaks}/${overview.totalHabits}` : '—', Icon: Flame, color: 'var(--orange)' },
+  ];
+
   return (
     <div>
       <div style={{ marginBottom: 28 }}>
@@ -134,14 +149,9 @@ export function Analytics() {
             <Skeleton width={60} height={28} />
             <Skeleton width={80} height={11} />
           </div>
-        )) : [
-          { label: '7-Day Avg',     value: `${overview?.completionRate7d  ?? weeklyAvg}%`,                 color: 'var(--green)',  icon: '📈' },
-          { label: '30-Day Avg',    value: `${overview?.completionRate30d ?? monthlyAvg}%`,                color: 'var(--blue)',   icon: '📅' },
-          { label: 'Consistency',   value: overview ? `${overview.consistencyScore}%` : '—',              color: 'var(--purple)', icon: '🎯' },
-          { label: 'Active Streaks',value: overview ? `${overview.activeStreaks}/${overview.totalHabits}` : '—', color: 'var(--orange)', icon: '🔥' },
-        ].map(({ label, value, color, icon }, i) => (
+        )) : summaryCards.map(({ label, value, Icon, color }, i) => (
           <div key={label} className="stat-card anim-up" style={{ padding: '18px 20px', gap: 10, animationDelay: `${i * 60}ms` }}>
-            <div style={{ fontSize: 24 }}>{icon}</div>
+            <Icon size={22} color={color} strokeWidth={1.75} />
             <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-.04em', color }}>{value}</div>
             <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-2)' }}>{label}</div>
           </div>
@@ -155,26 +165,26 @@ export function Analytics() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }}>
           {best && (
             <InsightCard
-              icon="🏆" label="Best Performing (30d)"
+              Icon={Trophy} iconColor="#16a34a" bg="#16a34a10"
+              label="Best Performing (30d)"
               value={`${best.icon} ${best.name}`}
               sub={`${best.rate}% completion rate`}
-              color="#16a34a"
             />
           )}
           {worst && best?.id !== worst.id && (
             <InsightCard
-              icon="📉" label="Needs Attention (30d)"
+              Icon={TrendingDown} iconColor="#dc2626" bg="#dc262610"
+              label="Needs Attention (30d)"
               value={`${worst.icon} ${worst.name}`}
               sub={`${worst.rate}% completion rate`}
-              color="#dc2626"
             />
           )}
           {overview && (
             <InsightCard
-              icon="📆" label="Most Consistent Day"
+              Icon={CalendarDays} iconColor="#2563eb" bg="#2563eb10"
+              label="Most Consistent Day"
               value={overview.bestDayOfWeek}
               sub={`Weakest: ${overview.worstDayOfWeek}`}
-              color="#2563eb"
             />
           )}
         </div>
@@ -278,7 +288,6 @@ export function Analytics() {
                     display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px',
                     background: i === 0 ? 'var(--amber-bg)' : 'var(--surface-2)',
                     borderRadius: 'var(--radius)', borderLeft: `3px solid ${s.color}`,
-                    transition: 'transform .15s, box-shadow .15s',
                   }}
                 >
                   <span style={{ fontSize: 20, width: 28, textAlign: 'center' }}>{s.icon}</span>
@@ -290,7 +299,7 @@ export function Analytics() {
                       {s.totalCompletions} total · best: {s.longest}d · 30d: {rate30}%
                     </div>
                   </div>
-                  {i === 0 && <span style={{ fontSize: 14 }}>🏆</span>}
+                  {i === 0 && <Trophy size={16} color="var(--amber)" strokeWidth={2} />}
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 800, lineHeight: 1, color: s.current > 0 ? s.color : 'var(--text-3)' }}>
                       {s.current}

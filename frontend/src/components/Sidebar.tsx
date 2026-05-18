@@ -1,11 +1,12 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, BarChart2, Grid3x3, LogOut } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import logo from '../assets/streakly.png';
 
 const NAV = [
-  { to: '/',          label: 'Dashboard', icon: '⊞',  mobileIcon: '⊞' },
-  { to: '/analytics', label: 'Analytics', icon: '◉',  mobileIcon: '◉' },
-  { to: '/heatmap',   label: 'Heatmap',   icon: '▦',  mobileIcon: '▦' },
+  { to: '/',          label: 'Dashboard', Icon: LayoutDashboard },
+  { to: '/analytics', label: 'Analytics', Icon: BarChart2 },
+  { to: '/heatmap',   label: 'Heatmap',   Icon: Grid3x3 },
 ];
 
 export function Sidebar() {
@@ -33,7 +34,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <div className="sidebar-nav" style={{ flex: 1, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {NAV.map(({ to, label, icon }) => (
+        {NAV.map(({ to, label, Icon }) => (
           <NavLink
             key={to}
             to={to}
@@ -46,11 +47,15 @@ export function Sidebar() {
               background: isActive ? 'var(--green-bg)' : 'transparent',
               transition: 'all .15s',
             })}
-            onMouseEnter={e => { if (!(e.currentTarget as HTMLAnchorElement).classList.contains('active')) (e.currentTarget as HTMLAnchorElement).style.background = 'var(--surface-2)'; }}
+            onMouseEnter={e => { if (!(e.currentTarget as HTMLAnchorElement).getAttribute('aria-current')) (e.currentTarget as HTMLAnchorElement).style.background = 'var(--surface-2)'; }}
             onMouseLeave={e => { if (!(e.currentTarget as HTMLAnchorElement).getAttribute('aria-current')) (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; }}
           >
-            <span style={{ fontSize: 17 }}>{icon}</span>
-            <span>{label}</span>
+            {({ isActive }) => (
+              <>
+                <Icon size={17} strokeWidth={isActive ? 2.5 : 2} />
+                <span>{label}</span>
+              </>
+            )}
           </NavLink>
         ))}
       </div>
@@ -71,7 +76,8 @@ export function Sidebar() {
             <div style={{ fontSize: 11, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
           </div>
         </div>
-        <button onClick={handleLogout} className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center' }}>
+        <button onClick={handleLogout} className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center', gap: 7 }}>
+          <LogOut size={14} />
           Sign out
         </button>
       </div>

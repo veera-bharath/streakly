@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { CheckCircle2, Clock, Flame, TrendingUp, Sprout } from 'lucide-react';
 import { useHabits } from '../hooks/useHabits';
 import { useStore } from '../store/useStore';
 import { HabitCard } from '../components/HabitCard';
@@ -32,7 +33,7 @@ function Trend({ value, suffix = '' }: TrendProps) {
   return <span className="trend-flat">— same</span>;
 }
 
-/* ─── Animated progress bar (starts at 0, fills to target) ─── */
+/* ─── Animated progress bar ─── */
 function ProgressBar({ pct }: { pct: number }) {
   const [displayPct, setDisplayPct] = useState(0);
 
@@ -63,6 +64,33 @@ function ProgressBar({ pct }: { pct: number }) {
   );
 }
 
+/* ─── Stat card data ─── */
+function useStatCards(completed: number, yCompleted: number, pct: number, yPct: number, best: number) {
+  return [
+    {
+      Icon: CheckCircle2, iconBg: 'var(--green-bg)', iconColor: 'var(--green)',
+      value: completed, label: 'Completed today',
+      trend: <Trend value={completed - yCompleted} />,
+    },
+    {
+      Icon: Clock, iconBg: 'var(--amber-bg)', iconColor: 'var(--amber)',
+      value: 0, label: 'Pending', // value computed below
+      trend: <Trend value={-(completed - yCompleted)} />,
+      _pending: true,
+    },
+    {
+      Icon: Flame, iconBg: 'var(--orange-bg)', iconColor: 'var(--orange)',
+      value: best, label: 'Top streak',
+      trend: <span className="trend-flat">{best > 0 ? `${best}d best` : '—'}</span>,
+    },
+    {
+      Icon: TrendingUp, iconBg: 'var(--purple-bg)', iconColor: 'var(--purple)',
+      value: pct, label: 'Completion rate', suffix: '%',
+      trend: <Trend value={pct - yPct} suffix="%" />,
+    },
+  ];
+}
+
 /* ─── Component ─── */
 export function Dashboard() {
   const { habits, loading, completed, yCompleted, pct, yPct, topStreak: best, total } = useHabits();
@@ -70,6 +98,7 @@ export function Dashboard() {
   const [showModal, setShowModal] = useState(false);
 
   const isLoading = loading && habits.length === 0;
+  const statCards = useStatCards(completed, yCompleted, pct, yPct, best);
 
   return (
     <div>
@@ -101,51 +130,24 @@ export function Dashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 24 }}>
         {isLoading ? (
           [1,2,3,4].map(i => <StatCardSkeleton key={i} />)
-        ) : total > 0 ? (<>
-          <div className="stat-card anim-up" style={{ animationDelay: '0ms' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div className="icon-wrap" style={{ background: 'var(--green-bg)' }}>✅</div>
-              <Trend value={completed - yCompleted} />
+        ) : total > 0 ? (
+          statCards.map(({ Icon, iconBg, iconColor, value, label, trend, suffix, _pending }, i) => (
+            <div key={label} className="stat-card anim-up" style={{ animationDelay: `${i * 60}ms` }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div className="icon-wrap" style={{ background: iconBg }}>
+                  <Icon size={18} color={iconColor} strokeWidth={2} />
+                </div>
+                {trend}
+              </div>
+              <div>
+                <div className="value" style={{ color: iconColor }}>
+                  {_pending ? total - completed : value}{suffix ?? ''}
+                </div>
+                <div className="label">{label}</div>
+              </div>
             </div>
-            <div>
-              <div className="value" style={{ color: 'var(--green)' }}>{completed}</div>
-              <div className="label">Completed today</div>
-            </div>
-          </div>
-
-          <div className="stat-card anim-up" style={{ animationDelay: '60ms' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div className="icon-wrap" style={{ background: 'var(--amber-bg)' }}>⏳</div>
-              <Trend value={-(completed - yCompleted)} />
-            </div>
-            <div>
-              <div className="value" style={{ color: 'var(--amber)' }}>{total - completed}</div>
-              <div className="label">Pending</div>
-            </div>
-          </div>
-
-          <div className="stat-card anim-up" style={{ animationDelay: '120ms' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div className="icon-wrap" style={{ background: 'var(--orange-bg)' }}>🔥</div>
-              <span className="trend-flat">{best > 0 ? `${best}d best` : '—'}</span>
-            </div>
-            <div>
-              <div className="value" style={{ color: 'var(--orange)' }}>{best}</div>
-              <div className="label">Top streak</div>
-            </div>
-          </div>
-
-          <div className="stat-card anim-up" style={{ animationDelay: '180ms' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div className="icon-wrap" style={{ background: 'var(--purple-bg)' }}>📊</div>
-              <Trend value={pct - yPct} suffix="%" />
-            </div>
-            <div>
-              <div className="value" style={{ color: 'var(--purple)' }}>{pct}%</div>
-              <div className="label">Completion rate</div>
-            </div>
-          </div>
-        </>) : null}
+          ))
+        ) : null}
       </div>
 
       {/* ── Progress bar ── */}
@@ -169,7 +171,7 @@ export function Dashboard() {
         </div>
       ) : habits.length === 0 ? (
         <div className="empty-state anim-up">
-          <div className="empty-state-icon">🌱</div>
+          <div className="empty-state-icon"><Sprout size={48} color="var(--green)" strokeWidth={1.5} /></div>
           <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-.02em', marginBottom: 8 }}>No habits yet</div>
           <div style={{ color: 'var(--text-2)', fontSize: 14, maxWidth: 260, margin: '0 auto 24px', lineHeight: 1.6 }}>
             Add your first habit to start building consistency.
