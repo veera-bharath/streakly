@@ -52,6 +52,12 @@ A full-stack habit tracking app with real-time sync, per-habit heatmaps, an anal
 ### Real-time sync
 - All mutations emit Socket.io events to the user's private room — changes appear instantly across browser tabs
 
+### Mobile UI
+- **Floating bottom nav** — pill-shaped card with rounded corners and shadow; icon + label for each route
+- **Center "+" button** — prominent green circle in the nav bar opens Add Habit from any page
+- **Profile popover** — user avatar initial in the nav; tap to reveal name, email, and sign-out
+- **Responsive layout** — desktop shows a fixed sidebar; ≤ 768 px switches to the bottom nav with `overflow-x: hidden` and safe-area padding
+
 ### Performance & UX
 - **Lazy loading** — Analytics and Heatmap pages load as separate JS chunks; initial bundle is ~400 KB lighter
 - **Memoized components** — `HabitCard` and `MiniHeatmap` use `React.memo` with custom comparators to skip re-renders on unrelated state changes
@@ -92,13 +98,13 @@ streakly/
 │       │   ├── HabitCard.tsx     # Memoized; undo toast, optimistic toggle error flash
 │       │   ├── AddHabitModal.tsx # Frequency type + target selector
 │       │   ├── MiniHeatmap.tsx   # Memoized; staggered cell reveal animation
-│       │   ├── Sidebar.tsx
+│       │   ├── Sidebar.tsx       # Desktop sidebar + mobile floating bottom nav
 │       │   └── Skeleton.tsx
 │       ├── hooks/
 │       │   ├── useHabits.ts      # Habits state + memoized dashboard stats
 │       │   ├── useAnalytics.ts   # Parallel analytics fetch + loading/error state
 │       │   └── useSocket.ts      # Socket.io real-time sync
-│       ├── store/useStore.ts     # Optimistic toggle with rollback
+│       ├── store/useStore.ts     # Optimistic toggle with rollback; openAddHabit global state
 │       └── api/client.ts
 │
 └── schema_migration.sql          # ALTER TABLE for frequency columns + indexes
