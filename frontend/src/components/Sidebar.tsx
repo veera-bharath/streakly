@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BarChart2, Grid3x3, LogOut, Plus, User } from 'lucide-react';
+import { LayoutDashboard, BarChart2, Grid3x3, LogOut, Plus, User, Sun, Moon } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { useThemeContext } from '../context/ThemeContext';
 import logo from '../assets/streakly.png';
 
 const NAV = [
@@ -15,6 +16,7 @@ export function Sidebar() {
   const { user, logout, setOpenAddHabit } = useStore();
   const navigate = useNavigate();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const { theme, toggle: toggleTheme } = useThemeContext();
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
@@ -78,10 +80,15 @@ export function Sidebar() {
               <div style={{ fontSize: 11, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
             </div>
           </div>
-          <button onClick={handleLogout} className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center', gap: 7 }}>
-            <LogOut size={14} />
-            Sign out
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={handleLogout} className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: 'center', gap: 7 }}>
+              <LogOut size={14} />
+              Sign out
+            </button>
+            <button onClick={toggleTheme} className="btn btn-ghost btn-sm btn-icon" title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -148,14 +155,23 @@ export function Sidebar() {
                 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{user?.username}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    style={{ width: '100%', justifyContent: 'center', gap: 7 }}
-                    onClick={handleLogout}
-                  >
-                    <LogOut size={13} />
-                    Sign out
-                  </button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      style={{ flex: 1, justifyContent: 'center', gap: 7 }}
+                      onClick={handleLogout}
+                    >
+                      <LogOut size={13} />
+                      Sign out
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-sm btn-icon"
+                      onClick={toggleTheme}
+                      title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                    >
+                      {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+                    </button>
+                  </div>
                 </div>
               </>
             )}
