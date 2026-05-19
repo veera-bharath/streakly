@@ -40,7 +40,9 @@ The `habits` table has two extra columns added via `schema_migration.sql`:
 - `frequency_target INTEGER DEFAULT 1` — times per week for weekly habits (1–7)
 
 ### State management
-`frontend/src/store/useStore.ts` (Zustand) is the single source of truth for `user`, `token`, and `habits`. Auth token is persisted in `localStorage` under `streakly_token`. `initAuth()` is called once at app boot in `App.tsx` to rehydrate the token and validate it against `/auth/me`.
+`frontend/src/store/useStore.ts` (Zustand) is the single source of truth for `user`, `token`, `habits`, and `openAddHabit`. Auth token is persisted in `localStorage` under `streakly_token`. `initAuth()` is called once at app boot in `App.tsx` to rehydrate the token and validate it against `/auth/me`.
+
+`openAddHabit: boolean` / `setOpenAddHabit(v)` controls the Add Habit modal globally. `AddHabitModal` is rendered at the `AppLayout` level in `App.tsx` so it can be opened from any page, including the mobile bottom nav's `+` button.
 
 **Important socket/store interaction**: `createHabit` in the store does **not** call `addHabit` after the API resolves — it waits for the `habit:created` socket event instead. This prevents a duplicate entry when the socket fires before the `await` settles.
 
@@ -88,6 +90,14 @@ All dates are ISO strings in `YYYY-MM-DD` format. The helpers `today()`, `toDate
 
 ### Color and icon assignment
 When creating a habit without an explicit color/icon, the backend assigns from `COLORS` and `ICONS` arrays in `backend/src/routes/habits.ts` using `(existingCount % array.length)` as the index.
+
+### Responsive layout
+The app has two distinct navigation layouts driven by a `@media (max-width: 768px)` breakpoint in `index.css`:
+
+- **Desktop (> 768 px)** — fixed 248 px sidebar on the left; `main-content` has `margin-left: 248px`.
+- **Mobile (≤ 768 px)** — sidebar is hidden; a floating pill-shaped bottom nav (`.bottom-nav` / `.bottom-nav-inner`) appears fixed at the bottom with `border-radius: 28px` and a drop shadow. The nav contains five items: Dashboard, Analytics, a centre `+` circle button (calls `setOpenAddHabit(true)`), Heatmap, and a Profile avatar that opens a sign-out popover. `main-content` switches to `margin-left: 0`, `overflow-x: hidden`, and enough bottom padding to clear the floating nav.
+
+Use `.hide-mobile { display: none !important }` (applied inside the `@media` block) to suppress desktop-only elements on mobile (e.g. the `+ Add Habit` header button on the Dashboard, since the nav `+` handles it).
 
 ### Styling
 All UI is plain CSS in `frontend/src/index.css` using CSS custom properties (design tokens) defined in `:root`. No CSS-in-JS or utility framework — inline styles are used heavily for component-specific layout, and shared utility classes (`.card`, `.btn`, `.badge`, `.skeleton`, `.stat-card`, `.insight-card`, etc.) are defined globally. Fonts are `Plus Jakarta Sans` (body) and `JetBrains Mono` (numeric/mono values).
