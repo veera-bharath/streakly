@@ -6,6 +6,7 @@ import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
+import { AddHabitModal } from './components/AddHabitModal';
 
 const Analytics   = lazy(() => import('./pages/Analytics').then(m => ({ default: m.Analytics })));
 const HeatmapPage = lazy(() => import('./pages/HeatmapPage').then(m => ({ default: m.HeatmapPage })));
@@ -20,6 +21,7 @@ function PageLoader() {
 
 function AppLayout() {
   useSocket();
+  const { openAddHabit, setOpenAddHabit } = useStore();
   return (
     <div className="layout">
       <Sidebar />
@@ -33,6 +35,7 @@ function AppLayout() {
           </Routes>
         </Suspense>
       </main>
+      {openAddHabit && <AddHabitModal onClose={() => setOpenAddHabit(false)} />}
     </div>
   );
 }

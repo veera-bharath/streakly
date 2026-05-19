@@ -3,7 +3,6 @@ import { CheckCircle2, Clock, Flame, TrendingUp, Sprout } from 'lucide-react';
 import { useHabits } from '../hooks/useHabits';
 import { useStore } from '../store/useStore';
 import { HabitCard } from '../components/HabitCard';
-import { AddHabitModal } from '../components/AddHabitModal';
 import { StatCardSkeleton, HabitCardSkeleton } from '../components/Skeleton';
 
 /* ─── Helpers ─── */
@@ -51,7 +50,7 @@ function ProgressBar({ pct }: { pct: number }) {
 
   return (
     <div className="card" style={{ padding: '14px 20px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 14 }}>
-      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', whiteSpace: 'nowrap', minWidth: 100 }}>
+      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
         Today's progress
       </span>
       <div className="progress-track" style={{ flex: 1 }}>
@@ -94,8 +93,7 @@ function useStatCards(completed: number, yCompleted: number, pct: number, yPct: 
 /* ─── Component ─── */
 export function Dashboard() {
   const { habits, loading, completed, yCompleted, pct, yPct, topStreak: best, total } = useHabits();
-  const { user } = useStore();
-  const [showModal, setShowModal] = useState(false);
+  const { user, setOpenAddHabit } = useStore();
 
   const isLoading = loading && habits.length === 0;
   const statCards = useStatCards(completed, yCompleted, pct, yPct, best);
@@ -121,7 +119,7 @@ export function Dashboard() {
             </>
           )}
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)} style={{ flexShrink: 0 }}>
+        <button className="btn btn-primary hide-mobile" onClick={() => setOpenAddHabit(true)} style={{ flexShrink: 0 }}>
           + Add Habit
         </button>
       </div>
@@ -176,7 +174,7 @@ export function Dashboard() {
           <div style={{ color: 'var(--text-2)', fontSize: 14, maxWidth: 260, margin: '0 auto 24px', lineHeight: 1.6 }}>
             Add your first habit to start building consistency.
           </div>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+          <button className="btn btn-primary" onClick={() => setOpenAddHabit(true)}>
             Add your first habit
           </button>
         </div>
@@ -188,7 +186,6 @@ export function Dashboard() {
         </div>
       )}
 
-      {showModal && <AddHabitModal onClose={() => setShowModal(false)} />}
     </div>
   );
 }

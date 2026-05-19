@@ -7,9 +7,11 @@ interface Store {
   token: string | null;
   habits: Habit[];
   loading: boolean;
+  openAddHabit: boolean;
 
   setAuth: (token: string, user: User) => void;
   logout: () => void;
+  setOpenAddHabit: (v: boolean) => void;
   fetchHabits: () => Promise<void>;
   addHabit: (h: Habit) => void;
   updateHabit: (h: Habit) => void;
@@ -25,6 +27,9 @@ export const useStore = create<Store>((set, get) => ({
   token: localStorage.getItem('streakly_token'),
   habits: [],
   loading: false,
+  openAddHabit: false,
+
+  setOpenAddHabit: (v) => set({ openAddHabit: v }),
 
   setAuth: (token, user) => {
     localStorage.setItem('streakly_token', token);
