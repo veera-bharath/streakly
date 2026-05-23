@@ -26,6 +26,7 @@ A full-stack habit tracking application with real-time sync, per-habit heatmaps,
 - **Heatmap page** — Contribution grids per habit with 30d / 90d / 1yr filter and hover tooltips
 - **Real-time sync** — Changes propagate across browser tabs via Socket.io
 - **Auth** — JWT-based register and login
+- **Dark mode** — System-aware theme toggle
 
 ## Planned
 
@@ -33,7 +34,6 @@ A full-stack habit tracking application with real-time sync, per-habit heatmaps,
 - Habit categories and tags
 - Reminders and push notifications
 - Social / accountability features
-- Dark mode
 - Data export (CSV, JSON)
 
 ## Project Structure
