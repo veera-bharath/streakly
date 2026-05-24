@@ -1,6 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { useStore } from '../store/useStore';
 import logo from '../assets/streakly.png';
 
@@ -22,6 +22,10 @@ export function Login() {
       setAuth(token, user);
       navigate('/');
     } catch (err) {
+      if (err instanceof ApiError && err.message === 'EMAIL_NOT_VERIFIED') {
+        navigate('/register', { state: { userId: err.data.userId as string, email } });
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Login failed');
       setLoading(false);
     }
