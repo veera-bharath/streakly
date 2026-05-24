@@ -1,3 +1,4 @@
+import { withRetry } from '../../utils/retry';
 import { IEmailService, SendTemplateParams } from '../../core/email/IEmailService';
 import { IEmailProvider } from '../../core/email/IEmailProvider';
 import { TemplateService } from '../templates/TemplateService';
@@ -15,19 +16,26 @@ export class EmailService implements IEmailService {
     try {
       template = await this.templateService.get(templateName);
     } catch (err) {
-      throw new Error(`EmailService: template "${templateName}" not found. ${(err as Error).message}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`EmailService: failed to load template "${templateName}": ${msg}`);
     }
 
-    const subject = template.subject(data);
-    const html    = template.html(data);
-    const text    = template.text?.(data);
+    let subject: string, html: string, text: string | undefined;
+    try {
+      subject = template.subject(data);
+      html    = template.html(data);
+      text    = template.text?.(data);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`EmailService: template "${templateName}" failed to render: ${msg}`);
+    }
 
     if (!subject || !html) {
       throw new Error(`EmailService: template "${templateName}" rendered empty subject or html`);
     }
 
     try {
-      await this.provider.send({ to, subject, html, text });
+      await withRetry(() => this.provider.send({ to, subject, html, text }));
     } catch (err) {
       console.error(`EmailService: provider failed for "${templateName}" → ${to}`, err);
       throw err;

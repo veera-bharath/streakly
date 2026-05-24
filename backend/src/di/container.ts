@@ -4,9 +4,10 @@ import { TemplateService } from '../application/templates/TemplateService';
 import { TemplateEntity } from '../core/templates/TemplateEntity';
 import { ConsoleEmailProvider } from '../infrastructure/email/ConsoleEmailProvider';
 import { EmailService } from '../application/email/EmailService';
+import { IEmailService } from '../core/email/IEmailService';
 
 let _templateService: TemplateService | undefined;
-let _emailService: EmailService | undefined;
+let _emailService: IEmailService | undefined;
 
 // lazy singleton — db client is created on first call so env-var validation
 // is deferred until the service is actually used (safe to import in tests)
@@ -23,7 +24,7 @@ export function getTemplateService(): TemplateService {
 }
 
 // Swap ConsoleEmailProvider for SendGridEmailProvider / ResendEmailProvider in production
-export function getEmailService(): EmailService {
+export function getEmailService(): IEmailService {
   if (!_emailService) {
     _emailService = new EmailService(getTemplateService(), new ConsoleEmailProvider());
   }
