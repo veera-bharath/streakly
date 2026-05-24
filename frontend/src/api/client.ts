@@ -7,6 +7,12 @@ function getToken(): string | null {
   return localStorage.getItem('streakly_token');
 }
 
+export class ApiError extends Error {
+  constructor(message: string, public readonly data: Record<string, unknown> = {}) {
+    super(message);
+  }
+}
+
 async function req<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const res = await fetch(`${BASE}${path}`, {
@@ -18,17 +24,24 @@ async function req<T>(path: string, options: RequestInit = {}): Promise<T> {
     },
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Request failed');
+  if (!res.ok) throw new ApiError(data.error || 'Request failed', data);
   return data as T;
 }
 
 export const api = {
   auth: {
     register: (body: { username: string; email: string; password: string }) =>
-      req<{ token: string; user: { id: string; username: string; email: string } }>('/auth/register', {
+      req<{ userId: string; message: string }>('/auth/register', {
         method: 'POST',
         body: JSON.stringify(body),
       }),
+    verifyEmail: (body: { userId: string; otp: string }) =>
+      req<{ token: string; user: { id: string; username: string; email: string } }>('/auth/verify-email', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    resendOtp: (body: { userId: string }) =>
+      req<{ message: string }>('/auth/resend-otp', { method: 'POST', body: JSON.stringify(body) }),
     login: (body: { email: string; password: string }) =>
       req<{ token: string; user: { id: string; username: string; email: string } }>('/auth/login', {
         method: 'POST',

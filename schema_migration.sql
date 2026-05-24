@@ -99,3 +99,37 @@ INSERT INTO email_templates (name, subject, html_body, text_body) VALUES (
   'Hi {{name}}, reset your Streakly password here: {{resetUrl}} — expires in 1 hour. If you did not request this, ignore this email.'
 )
 ON CONFLICT (name) DO NOTHING;
+
+-- ============================================================
+-- Email OTP Verification (issue #10)
+-- ============================================================
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT false;
+
+CREATE TABLE IF NOT EXISTS email_verification_otps (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  otp        TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  attempts   INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_evo_user_id ON email_verification_otps(user_id);
+
+INSERT INTO email_templates (name, subject, html_body, text_body) VALUES (
+  'email-verification',
+  'Verify your Streakly account',
+  '<div style="font-family:sans-serif;max-width:480px;margin:auto">
+    <h2 style="color:#00c853">Verify your email</h2>
+    <p>Hi {{name}}, welcome to Streakly!</p>
+    <p>Enter this code to confirm your email address. It expires in <strong>10 minutes</strong>.</p>
+    <div style="font-size:36px;font-weight:700;letter-spacing:12px;text-align:center;padding:24px;background:#1a1a1a;border-radius:12px;color:#00c853;margin:16px 0">
+      {{otp}}
+    </div>
+    <p style="color:#888;font-size:13px">If you did not create a Streakly account, ignore this email.</p>
+  </div>',
+  'Hi {{name}}, your Streakly verification code is: {{otp}} — expires in 10 minutes.'
+)
+ON CONFLICT (name) DO NOTHING;

@@ -7,27 +7,46 @@ import { JWT_SECRET, authenticate } from '../middleware/auth';
 import { AuthenticatedRequest } from '../types';
 import { getEmailService } from '../di/container';
 
-// Simple in-memory rate limiter: max 3 requests per email per hour
-const forgotPasswordAttempts = new Map<string, { count: number; resetAt: number }>();
+// --- In-memory rate limiters ---
 
-function checkRateLimit(email: string): boolean {
+const forgotPasswordAttempts = new Map<string, { count: number; resetAt: number }>();
+const resendOtpAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(
+  map: Map<string, { count: number; resetAt: number }>,
+  key: string,
+  max: number,
+  windowMs: number,
+): boolean {
   const now = Date.now();
-  const entry = forgotPasswordAttempts.get(email);
+  const entry = map.get(key);
   if (!entry || entry.resetAt < now) {
-    forgotPasswordAttempts.set(email, { count: 1, resetAt: now + 3600_000 });
+    map.set(key, { count: 1, resetAt: now + windowMs });
     return true;
   }
-  if (entry.count >= 3) return false;
+  if (entry.count >= max) return false;
   entry.count += 1;
   return true;
 }
 
+function generateOtp(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
 const router = Router();
+
+// ------------------------------------------------------------------ register
 
 router.post('/register', async (req: Request, res: Response) => {
   const { username, email, password } = req.body;
-  if (!username || !email || !password) {
+  if (!username || typeof username !== 'string' ||
+      !email    || typeof email    !== 'string' ||
+      !password || typeof password !== 'string') {
     res.status(400).json({ error: 'Username, email, and password required' });
+    return;
+  }
+  if (password.length < 6) {
+    res.status(400).json({ error: 'Password must be at least 6 characters' });
     return;
   }
 
@@ -35,7 +54,7 @@ router.post('/register', async (req: Request, res: Response) => {
 
   const { data, error } = await db
     .from('users')
-    .insert({ username, email: email.toLowerCase(), password_hash: passwordHash })
+    .insert({ username, email: email.toLowerCase(), password_hash: passwordHash, is_verified: false })
     .select('id, username, email')
     .single();
 
@@ -45,9 +64,40 @@ router.post('/register', async (req: Request, res: Response) => {
     return;
   }
 
-  const token = jwt.sign({ userId: data.id }, JWT_SECRET, { expiresIn: '7d' });
-  res.status(201).json({ token, user: { id: data.id, username: data.username, email: data.email } });
+  // Invalidate any stale OTPs from a previous attempt with this email
+  await db.from('email_verification_otps').update({ used_at: new Date().toISOString() })
+    .eq('user_id', data.id)
+    .is('used_at', null);
+
+  const otp = generateOtp();
+  const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
+
+  const { error: otpError } = await db.from('email_verification_otps').insert({
+    user_id: data.id,
+    otp,
+    expires_at: expiresAt,
+  });
+
+  if (otpError) {
+    console.error('[register] failed to insert OTP:', otpError);
+    res.status(500).json({ error: 'Account created but could not send verification email. Please try again.' });
+    return;
+  }
+
+  try {
+    await getEmailService().sendTemplateEmail({
+      to: data.email,
+      templateName: 'email-verification',
+      data: { name: data.username, otp },
+    });
+  } catch (err) {
+    console.error('[register] email send failed:', err);
+  }
+
+  res.status(201).json({ userId: data.id, message: 'Check your email for a verification code.' });
 });
+
+// ------------------------------------------------------------------ login
 
 router.post('/login', async (req: Request, res: Response) => {
   const { email, password } = req.body;
@@ -58,7 +108,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
   const { data: user, error } = await db
     .from('users')
-    .select('id, username, email, password_hash')
+    .select('id, username, email, password_hash, is_verified')
     .eq('email', email.toLowerCase())
     .single();
 
@@ -67,9 +117,149 @@ router.post('/login', async (req: Request, res: Response) => {
     return;
   }
 
+  if (!user.is_verified) {
+    res.status(403).json({ error: 'EMAIL_NOT_VERIFIED', userId: user.id });
+    return;
+  }
+
   const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ token, user: { id: user.id, username: user.username, email: user.email } });
 });
+
+// --------------------------------------------------------------- verify-email
+
+router.post('/verify-email', async (req: Request, res: Response) => {
+  const { userId, otp } = req.body;
+  if (!userId || typeof userId !== 'string' || !otp || typeof otp !== 'string') {
+    res.status(400).json({ error: 'userId and otp are required' });
+    return;
+  }
+
+  // Fetch latest unused OTP for this user
+  const { data: otpRow } = await db
+    .from('email_verification_otps')
+    .select('id, otp, expires_at, used_at, attempts')
+    .eq('user_id', userId)
+    .is('used_at', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (!otpRow) {
+    res.status(400).json({ error: 'No active verification code found. Please request a new one.' });
+    return;
+  }
+
+  if (new Date(otpRow.expires_at) < new Date()) {
+    res.status(400).json({ error: 'Verification code has expired. Please request a new one.' });
+    return;
+  }
+
+  const attempts = (otpRow.attempts ?? 0) + 1;
+
+  if (otpRow.otp !== otp) {
+    if (attempts >= 5) {
+      // Invalidate the OTP after 5 failed attempts
+      await db.from('email_verification_otps')
+        .update({ used_at: new Date().toISOString(), attempts })
+        .eq('id', otpRow.id);
+      res.status(400).json({ error: 'Too many incorrect attempts. Please request a new code.' });
+    } else {
+      await db.from('email_verification_otps').update({ attempts }).eq('id', otpRow.id);
+      res.status(400).json({ error: `Incorrect code. ${5 - attempts} attempt${5 - attempts === 1 ? '' : 's'} remaining.` });
+    }
+    return;
+  }
+
+  // Mark OTP used and activate user
+  await db.from('email_verification_otps')
+    .update({ used_at: new Date().toISOString(), attempts })
+    .eq('id', otpRow.id);
+
+  const { error: verifyError } = await db
+    .from('users')
+    .update({ is_verified: true })
+    .eq('id', userId);
+
+  if (verifyError) {
+    res.status(500).json({ error: 'Failed to activate account. Please try again.' });
+    return;
+  }
+
+  const { data: user } = await db
+    .from('users')
+    .select('id, username, email')
+    .eq('id', userId)
+    .single();
+
+  if (!user) {
+    res.status(500).json({ error: 'Account activated but user not found.' });
+    return;
+  }
+
+  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+  res.json({ token, user: { id: user.id, username: user.username, email: user.email } });
+});
+
+// --------------------------------------------------------------- resend-otp
+
+router.post('/resend-otp', async (req: Request, res: Response) => {
+  const { userId } = req.body;
+  if (!userId || typeof userId !== 'string') {
+    res.status(400).json({ error: 'userId is required' });
+    return;
+  }
+
+  if (!checkRateLimit(resendOtpAttempts, userId, 3, 3600_000)) {
+    res.status(429).json({ error: 'Too many resend requests. Please wait before trying again.' });
+    return;
+  }
+
+  const { data: user } = await db
+    .from('users')
+    .select('id, username, email, is_verified')
+    .eq('id', userId)
+    .single();
+
+  if (!user || user.is_verified) {
+    res.status(400).json({ error: 'Invalid request.' });
+    return;
+  }
+
+  // Invalidate all existing OTPs
+  await db.from('email_verification_otps')
+    .update({ used_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .is('used_at', null);
+
+  const otp = generateOtp();
+  const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
+
+  const { error: insertError } = await db.from('email_verification_otps').insert({
+    user_id: userId,
+    otp,
+    expires_at: expiresAt,
+  });
+
+  if (insertError) {
+    res.status(500).json({ error: 'Failed to generate new code. Please try again.' });
+    return;
+  }
+
+  try {
+    await getEmailService().sendTemplateEmail({
+      to: user.email,
+      templateName: 'email-verification',
+      data: { name: user.username, otp },
+    });
+  } catch (err) {
+    console.error('[resend-otp] email send failed:', err);
+  }
+
+  res.json({ message: 'A new code has been sent.' });
+});
+
+// ----------------------------------------------------------- forgot-password
 
 router.post('/forgot-password', async (req: Request, res: Response) => {
   const { email } = req.body;
@@ -77,7 +267,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
 
   if (!email || typeof email !== 'string') { res.json(OK); return; }
 
-  if (!checkRateLimit(email.toLowerCase())) { res.json(OK); return; }
+  if (!checkRateLimit(forgotPasswordAttempts, email.toLowerCase(), 3, 3600_000)) { res.json(OK); return; }
 
   const { data: user } = await db
     .from('users')
@@ -87,7 +277,6 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
 
   if (!user) { res.json(OK); return; }
 
-  // Delete any existing unused tokens for this user
   await db.from('password_reset_tokens').delete()
     .eq('user_id', user.id)
     .is('used_at', null);
@@ -118,6 +307,8 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
 
   res.json(OK);
 });
+
+// ----------------------------------------------------------- reset-password
 
 router.post('/reset-password', async (req: Request, res: Response) => {
   const { token, newPassword } = req.body;
@@ -165,6 +356,8 @@ router.post('/reset-password', async (req: Request, res: Response) => {
 
   res.json({ message: 'Password updated. Please sign in.' });
 });
+
+// ----------------------------------------------------------------------- me
 
 router.get('/me', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   const { data, error } = await db
