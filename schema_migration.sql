@@ -37,3 +37,32 @@ SELECT column_name, data_type, column_default
 FROM information_schema.columns
 WHERE table_name = 'habits'
 ORDER BY ordinal_position;
+
+-- ============================================================
+-- Email Templates: Template Service (issue #7)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS email_templates (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       TEXT UNIQUE NOT NULL,
+  subject    TEXT NOT NULL,
+  html_body  TEXT NOT NULL,
+  text_body  TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+INSERT INTO email_templates (name, subject, html_body, text_body) VALUES
+(
+  'welcome',
+  'Welcome to Streakly, {{name}}!',
+  '<h1>Hi {{name}}</h1><p>You are all set. Your first streak starts today.</p>',
+  'Hi {{name}}, you are all set. Your first streak starts today.'
+),
+(
+  'streak-reminder',
+  'Keep your streak alive, {{name}}!',
+  '<p>Hi {{name}}, you have a <strong>{{streak}}-day streak</strong>. Do not break it!</p>',
+  'Hi {{name}}, you have a {{streak}}-day streak. Do not break it!'
+)
+ON CONFLICT (name) DO NOTHING;
