@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, memo } from 'react';
-import { Flame, MoreHorizontal, Check, AlertCircle } from 'lucide-react';
+import { Flame, MoreHorizontal, Check, AlertCircle, Shield, ShieldAlert } from 'lucide-react';
 import { Habit } from '../types';
 import { useStore } from '../store/useStore';
 import { MiniHeatmap } from './MiniHeatmap';
@@ -49,8 +49,10 @@ function UndoToast({ onUndo, onDismiss }: { onUndo: () => void; onDismiss: () =>
 
 /* ─── HabitCard (memoized) ─── */
 export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props) {
-  const { toggleHabit, deleteHabit } = useStore();
+  const { toggleHabit, deleteHabit, useFreeze } = useStore();
   const [toggling, setToggling]       = useState(false);
+  const [freezing, setFreezing]       = useState(false);
+  const [freezeError, setFreezeError] = useState(false);
   const [toggleError, setToggleError] = useState(false);
   const [showDelete, setShowDelete]   = useState(false);
   const [showUndoToast, setShowUndoToast] = useState(false);
@@ -87,6 +89,19 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
     try { await toggleHabit(habit.id); } catch { /* ignore */ } finally { setToggling(false); }
   };
 
+  const handleUseFreeze = async () => {
+    if (freezing) return;
+    setFreezing(true);
+    try {
+      await useFreeze(habit.id);
+    } catch {
+      setFreezeError(true);
+      setTimeout(() => setFreezeError(false), 2000);
+    } finally {
+      setFreezing(false);
+    }
+  };
+
   const completionRate = (() => {
     if (!habit.completions.length) return 0;
     const last30 = Array.from({ length: 30 }, (_, i) => {
@@ -112,7 +127,7 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
     >
       {/* Card header */}
       <div style={{ padding: '18px 20px 0' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
 
           {/* Circle toggle */}
           <button
@@ -121,7 +136,7 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
             title={done ? 'Mark incomplete' : 'Mark complete'}
             className="habit-toggle"
             style={{
-              width: 34, height: 34, borderRadius: '50%', flexShrink: 0, marginTop: 1,
+              width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
               border: `2px solid ${done ? habit.color : toggleError ? 'var(--red)' : 'var(--border-2)'}`,
               background: done ? habit.color : toggleError ? 'var(--red-bg)' : 'transparent',
               color: '#fff',
@@ -174,14 +189,15 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
             )}
           </div>
 
-          {/* Streak + menu */}
+          {/* Streak + freeze shield + menu */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 800, lineHeight: 1, color: habit.streak > 0 ? habit.color : 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
                 {habit.streak > 0 && <Flame size={16} color="var(--orange)" strokeWidth={2} />}
                 {habit.streak}
               </div>
-              <div style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', letterSpacing: '.04em' }}>
+              <div style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', letterSpacing: '.04em', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3 }}>
+                {habit.freezesLeft > 0 && <Shield size={9} strokeWidth={2.5} color="var(--blue, #3b82f6)" />}
                 {streakLabel}
               </div>
             </div>
@@ -207,6 +223,36 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
 
       {/* Undo toast */}
       {showUndoToast && <UndoToast onUndo={handleUndo} onDismiss={() => setShowUndoToast(false)} />}
+
+      {/* Streak at-risk warning */}
+      {habit.streakAtRisk && !showUndoToast && (
+        <div className="anim-in" style={{
+          margin: '10px 20px 0', padding: '10px 14px',
+          background: 'var(--amber-bg, #fffbeb)', borderRadius: 'var(--radius)',
+          border: '1px solid var(--amber, #f59e0b)',
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <ShieldAlert size={14} color="var(--amber, #f59e0b)" strokeWidth={2.5} />
+          <span style={{ fontSize: 13, color: 'var(--amber, #b45309)', fontWeight: 600, flex: 1 }}>
+            Complete today to keep your streak
+          </span>
+          {habit.freezesLeft > 0 && (
+            <button
+              className="btn btn-sm btn-ghost"
+              onClick={handleUseFreeze}
+              disabled={freezing}
+              style={{
+                color: freezeError ? 'var(--red)' : 'var(--blue, #3b82f6)',
+                borderColor: freezeError ? 'var(--red)' : 'var(--blue, #3b82f6)',
+                padding: '3px 10px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12,
+              }}
+            >
+              <Shield size={11} strokeWidth={2.5} />
+              {freezing ? 'Saving…' : freezeError ? 'Failed' : 'Use freeze'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Delete confirm */}
       {showDelete && (
@@ -248,6 +294,14 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
               {completionRate}%
             </span>
           </div>
+          {habit.freezesLeft > 0 && (
+            <div>
+              <span style={{ fontSize: 11, color: 'var(--text-3)', display: 'block' }}>Freeze</span>
+              <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--blue, #3b82f6)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                <Shield size={11} strokeWidth={2.5} /> 1 left
+              </span>
+            </div>
+          )}
         </div>
 
         <button
@@ -267,5 +321,7 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
   prev.habit.completedThisWeek === next.habit.completedThisWeek &&
   prev.habit.streak            === next.habit.streak &&
   prev.habit.completions.length === next.habit.completions.length &&
+  prev.habit.freezesLeft       === next.habit.freezesLeft &&
+  prev.habit.streakAtRisk      === next.habit.streakAtRisk &&
   prev.animDelay               === next.animDelay
 ));
