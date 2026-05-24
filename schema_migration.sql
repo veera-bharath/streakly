@@ -37,3 +37,10 @@ SELECT column_name, data_type, column_default
 FROM information_schema.columns
 WHERE table_name = 'habits'
 ORDER BY ordinal_position;
+
+-- ============================================================
+-- Completion Notes (issue #12)
+-- ============================================================
+
+ALTER TABLE habit_completions
+  ADD COLUMN IF NOT EXISTS notes TEXT;
