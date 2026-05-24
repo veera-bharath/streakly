@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import { Flame, MoreHorizontal, Check, AlertCircle, Pencil, Trash2 } from 'lucide-react';
 import { Habit } from '../types';
 import { useStore } from '../store/useStore';
+import { api } from '../api/client';
 import { MiniHeatmap } from './MiniHeatmap';
 import { AddHabitModal } from './AddHabitModal';
 
@@ -44,6 +45,68 @@ function UndoToast({ onUndo, onDismiss }: { onUndo: () => void; onDismiss: () =>
           Undo
         </button>
       </div>
+    </div>
+  );
+}
+
+/* ─── Note row ─── */
+function NoteRow({ habitId, date, initialNote }: { habitId: string; date: string; initialNote: string | null }) {
+  const { updateHabit } = useStore();
+  const [value, setValue] = useState(initialNote ?? '');
+  const [editing, setEditing] = useState(initialNote === null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  const save = async () => {
+    const note = value.trim() || null;
+    try {
+      const updated = await api.habits.updateNote(habitId, date, note);
+      updateHabit(updated);
+    } catch { /* ignore — server reconciles on next toggle */ }
+    setEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { e.preventDefault(); save(); }
+    if (e.key === 'Escape') { setValue(initialNote ?? ''); setEditing(false); }
+  };
+
+  return (
+    <div className="anim-in" style={{ margin: '8px 20px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+      {editing ? (
+        <input
+          ref={inputRef}
+          value={value}
+          onChange={e => setValue(e.target.value.slice(0, 200))}
+          onBlur={save}
+          onKeyDown={handleKeyDown}
+          placeholder="Add a note…"
+          maxLength={200}
+          style={{
+            flex: 1, fontSize: 13, color: 'var(--text-2)',
+            background: 'var(--surface-2)', border: '1px solid var(--border)',
+            borderRadius: 6, padding: '5px 10px', outline: 'none',
+            fontFamily: 'inherit',
+          }}
+        />
+      ) : (
+        <>
+          <span style={{ flex: 1, fontSize: 13, color: 'var(--text-2)', fontStyle: initialNote ? 'normal' : 'italic' }}>
+            {initialNote || 'Add a note…'}
+          </span>
+          <button
+            className="btn-icon"
+            onClick={() => setEditing(true)}
+            title="Edit note"
+            style={{ color: 'var(--text-3)', opacity: 0.6 }}
+          >
+            <Pencil size={13} />
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -95,14 +158,18 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
     setShowDelete(false);
   };
 
+  const completionDates = new Set(habit.completions.map(c => c.date));
   const completionRate = (() => {
     if (!habit.completions.length) return 0;
     const last30 = Array.from({ length: 30 }, (_, i) => {
       const d = new Date(); d.setDate(d.getDate() - (29 - i));
       return d.toISOString().split('T')[0];
     });
-    return Math.round(last30.filter(d => habit.completions.includes(d)).length / 30 * 100);
+    return Math.round(last30.filter(d => completionDates.has(d)).length / 30 * 100);
   })();
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayNote = habit.completions.find(c => c.date === todayStr)?.notes ?? null;
 
   const streakLabel = habit.streakUnit === 'weeks' ? 'wks' : habit.streak === 1 ? 'day' : 'days';
 
@@ -221,6 +288,9 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
         {/* Undo toast */}
         {showUndoToast && <UndoToast onUndo={handleUndo} onDismiss={() => setShowUndoToast(false)} />}
 
+        {/* Note row — shown when today's habit is complete */}
+        {done && <NoteRow habitId={habit.id} date={todayStr} initialNote={todayNote} />}
+
         {/* ··· menu */}
         {showMenu && !showDelete && (
           <div className="anim-in" style={{
@@ -267,7 +337,7 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
 
         {/* Heatmap */}
         <div style={{ padding: '16px 20px 0', overflowX: 'auto' }}>
-          <MiniHeatmap completions={habit.completions} color={habit.color} weeks={16} />
+          <MiniHeatmap completions={habit.completions.map(c => c.date)} color={habit.color} weeks={16} />
         </div>
 
         {/* Footer stats */}
@@ -306,15 +376,21 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
       </div>
     </>
   );
-}, (prev, next) => (
-  prev.habit.id                 === next.habit.id &&
-  prev.habit.name               === next.habit.name &&
-  prev.habit.description        === next.habit.description &&
-  prev.habit.color              === next.habit.color &&
-  prev.habit.icon               === next.habit.icon &&
-  prev.habit.completedToday     === next.habit.completedToday &&
-  prev.habit.completedThisWeek  === next.habit.completedThisWeek &&
-  prev.habit.streak             === next.habit.streak &&
-  prev.habit.completions.length === next.habit.completions.length &&
-  prev.animDelay                === next.animDelay
-));
+}, (prev, next) => {
+  const todayDate = new Date().toISOString().split('T')[0];
+  const prevNote = prev.habit.completions.find(c => c.date === todayDate)?.notes ?? null;
+  const nextNote = next.habit.completions.find(c => c.date === todayDate)?.notes ?? null;
+  return (
+    prev.habit.id                 === next.habit.id &&
+    prev.habit.name               === next.habit.name &&
+    prev.habit.description        === next.habit.description &&
+    prev.habit.color              === next.habit.color &&
+    prev.habit.icon               === next.habit.icon &&
+    prev.habit.completedToday     === next.habit.completedToday &&
+    prev.habit.completedThisWeek  === next.habit.completedThisWeek &&
+    prev.habit.streak             === next.habit.streak &&
+    prev.habit.completions.length === next.habit.completions.length &&
+    prevNote                      === nextNote &&
+    prev.animDelay                === next.animDelay
+  );
+});

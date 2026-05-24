@@ -1,5 +1,10 @@
 export type FrequencyType = 'daily' | 'weekly';
 
+export interface Completion {
+  date: string;
+  notes: string | null;
+}
+
 export interface User {
   id: string;
   username: string;
@@ -15,7 +20,7 @@ export interface Habit {
   icon: string;
   frequencyType: FrequencyType;
   frequencyTarget: number;
-  completions: string[];
+  completions: Completion[];
   createdAt: string;
   streak: number;
   longestStreak: number;

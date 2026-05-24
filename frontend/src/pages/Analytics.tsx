@@ -20,7 +20,8 @@ function last30Days(): string[] {
 }
 
 function habitRate(h: Habit, days: string[]): number {
-  const n = days.filter(d => h.completions.includes(d)).length;
+  const dates = new Set(h.completions.map(c => c.date));
+  const n = days.filter(d => dates.has(d)).length;
   return days.length > 0 ? Math.round((n / days.length) * 100) : 0;
 }
 

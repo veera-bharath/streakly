@@ -49,8 +49,10 @@ export const api = {
     update: (id: string, patch: { name?: string; description?: string; color?: string; icon?: string }) =>
       req<Habit>(`/habits/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
     delete: (id: string) => req<{ success: boolean }>(`/habits/${id}`, { method: 'DELETE' }),
-    toggle: (id: string, date?: string) =>
-      req<Habit>(`/habits/${id}/toggle`, { method: 'POST', body: JSON.stringify({ date }) }),
+    toggle: (id: string, date?: string, notes?: string) =>
+      req<Habit>(`/habits/${id}/toggle`, { method: 'POST', body: JSON.stringify({ date, notes }) }),
+    updateNote: (id: string, date: string, notes: string | null) =>
+      req<Habit>(`/habits/${id}/completion`, { method: 'PATCH', body: JSON.stringify({ date, notes }) }),
   },
   analytics: {
     weekly: () => req<{ data: WeeklyData[]; habits: string[] }>('/analytics/weekly'),

@@ -19,7 +19,7 @@ interface Store {
   createHabit: (name: string, description?: string, frequencyType?: FrequencyType, frequencyTarget?: number, color?: string, icon?: string) => Promise<void>;
   editHabit: (id: string, patch: { name?: string; description?: string; color?: string; icon?: string }) => Promise<void>;
   deleteHabit: (id: string) => Promise<void>;
-  toggleHabit: (id: string, date?: string) => Promise<void>;
+  toggleHabit: (id: string, date?: string, notes?: string) => Promise<void>;
   initAuth: () => Promise<boolean>;
 }
 
@@ -71,19 +71,19 @@ export const useStore = create<Store>((set, get) => ({
     get().removeHabit(id);
   },
 
-  toggleHabit: async (id, date) => {
+  toggleHabit: async (id, date, notes) => {
     const prev = get().habits.find(h => h.id === id);
 
     // Optimistic update — flip completedToday and adjust completions array
     if (prev) {
       const today = new Date().toISOString().split('T')[0];
       const target = date ?? today;
-      const wasCompleted = prev.completions.includes(target);
+      const wasCompleted = prev.completions.some(c => c.date === target);
       get().updateHabit({
         ...prev,
         completions: wasCompleted
-          ? prev.completions.filter(d => d !== target)
-          : [...prev.completions, target],
+          ? prev.completions.filter(c => c.date !== target)
+          : [...prev.completions, { date: target, notes: notes ?? null }],
         completedToday: target === today ? !prev.completedToday : prev.completedToday,
         completedThisWeek: wasCompleted
           ? Math.max(0, prev.completedThisWeek - 1)
@@ -92,7 +92,7 @@ export const useStore = create<Store>((set, get) => ({
     }
 
     try {
-      const updated = await api.habits.toggle(id, date);
+      const updated = await api.habits.toggle(id, date, notes);
       get().updateHabit(updated); // reconcile with authoritative server data
     } catch (err) {
       if (prev) get().updateHabit(prev); // rollback
