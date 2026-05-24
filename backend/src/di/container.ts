@@ -28,9 +28,13 @@ export function getTemplateService(): TemplateService {
 function buildEmailProvider(): IEmailProvider {
   const { SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM_ADDRESS, SMTP_FROM_NAME } = process.env;
   if (SMTP_HOST && SMTP_USERNAME && SMTP_PASSWORD && SMTP_FROM_ADDRESS) {
+    const port = SMTP_PORT !== undefined ? parseInt(SMTP_PORT, 10) : 587;
+    if (Number.isNaN(port) || port < 1 || port > 65535) {
+      throw new Error(`Invalid SMTP_PORT: "${SMTP_PORT}". Must be a number between 1 and 65535.`);
+    }
     return new BrevoEmailProvider({
       host: SMTP_HOST,
-      port: SMTP_PORT ? parseInt(SMTP_PORT, 10) : 587,
+      port,
       username: SMTP_USERNAME,
       password: SMTP_PASSWORD,
       fromAddress: SMTP_FROM_ADDRESS,

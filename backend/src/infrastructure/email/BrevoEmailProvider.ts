@@ -15,11 +15,20 @@ export class BrevoEmailProvider implements IEmailProvider {
   private readonly from: string;
 
   constructor(config: BrevoConfig) {
+    // Reject control characters and double-quotes that would break the RFC 5322 From header
+    if (/["\r\n]/.test(config.fromName)) {
+      throw new Error(`BrevoEmailProvider: fromName contains illegal characters`);
+    }
+    if (/[<>\r\n]/.test(config.fromAddress)) {
+      throw new Error(`BrevoEmailProvider: fromAddress contains illegal characters`);
+    }
+
     this.from = `"${config.fromName}" <${config.fromAddress}>`;
+
+    // port 587 uses STARTTLS (not SSL); secure:false + requireTLS:true is correct
     this.transporter = nodemailer.createTransport({
       host: config.host,
       port: config.port,
-      // port 587 uses STARTTLS (not SSL); secure:false + requireTLS:true is correct
       secure: false,
       requireTLS: true,
       auth: {
@@ -27,6 +36,11 @@ export class BrevoEmailProvider implements IEmailProvider {
         pass: config.password,
       },
     });
+
+    // verify credentials at startup so misconfiguration surfaces immediately
+    this.transporter.verify().catch((err: Error) =>
+      console.error('BrevoEmailProvider: SMTP verify failed —', err.message),
+    );
   }
 
   async send(params: SendParams): Promise<void> {
@@ -35,7 +49,7 @@ export class BrevoEmailProvider implements IEmailProvider {
       to: params.to,
       subject: params.subject,
       html: params.html,
-      text: params.text,
+      ...(params.text !== undefined && { text: params.text }),
     });
   }
 }
