@@ -2,10 +2,14 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useStore } from './store/useStore';
 import { useSocket } from './hooks/useSocket';
+import { useTheme } from './hooks/useTheme';
+import { ThemeContext } from './context/ThemeContext';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
+import { ForgotPassword } from './pages/ForgotPassword';
+import { ResetPassword } from './pages/ResetPassword';
 import { AddHabitModal } from './components/AddHabitModal';
 
 const Analytics   = lazy(() => import('./pages/Analytics').then(m => ({ default: m.Analytics })));
@@ -48,6 +52,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 export function App() {
   const { initAuth, token } = useStore();
   const [ready, setReady] = useState(false);
+  const themeCtx = useTheme();
 
   useEffect(() => {
     initAuth().finally(() => setReady(true));
@@ -66,12 +71,16 @@ export function App() {
   const basename = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
 
   return (
+    <ThemeContext.Provider value={themeCtx}>
     <BrowserRouter basename={basename}>
       <Routes>
-        <Route path="/login"    element={token ? <Navigate to="/" replace /> : <Login />} />
-        <Route path="/register" element={token ? <Navigate to="/" replace /> : <Register />} />
+        <Route path="/login"            element={token ? <Navigate to="/" replace /> : <Login />} />
+        <Route path="/register"         element={token ? <Navigate to="/" replace /> : <Register />} />
+        <Route path="/forgot-password"  element={token ? <Navigate to="/" replace /> : <ForgotPassword />} />
+        <Route path="/reset-password"   element={token ? <Navigate to="/" replace /> : <ResetPassword />} />
         <Route path="/*"        element={<RequireAuth><AppLayout /></RequireAuth>} />
       </Routes>
     </BrowserRouter>
+    </ThemeContext.Provider>
   );
 }

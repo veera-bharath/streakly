@@ -1,16 +1,18 @@
 import { useState, FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { api } from '../api/client';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { api, ApiError } from '../api/client';
 import { useStore } from '../store/useStore';
 import logo from '../assets/streakly.png';
 
 export function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { setAuth } = useStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const successMessage = (location.state as { message?: string } | null)?.message ?? '';
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -20,6 +22,10 @@ export function Login() {
       setAuth(token, user);
       navigate('/');
     } catch (err) {
+      if (err instanceof ApiError && err.message === 'EMAIL_NOT_VERIFIED') {
+        navigate('/register', { state: { userId: err.data.userId as string, email } });
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Login failed');
       setLoading(false);
     }
@@ -60,6 +66,12 @@ export function Login() {
             <div style={{ fontSize: 14, color: 'var(--text-2)' }}>Sign in to continue your streak</div>
           </div>
 
+          {successMessage && (
+            <div style={{ fontSize: 13, color: '#00c853', background: 'rgba(0,200,83,.1)', padding: '10px 14px', borderRadius: 'var(--radius)', fontWeight: 500, marginBottom: 16 }}>
+              {successMessage}
+            </div>
+          )}
+
           <div className="card" style={{ padding: 28 }}>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
@@ -69,6 +81,11 @@ export function Login() {
               <div>
                 <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: 6 }}>Password</label>
                 <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
+                <div style={{ textAlign: 'right', marginTop: 6 }}>
+                  <Link to="/forgot-password" style={{ fontSize: 13, color: 'var(--text-2)', textDecoration: 'none' }}>
+                    Forgot password?
+                  </Link>
+                </div>
               </div>
 
               {error && (

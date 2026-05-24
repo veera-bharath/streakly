@@ -27,6 +27,9 @@ export interface Habit {
   streakUnit: 'days' | 'weeks';
   completedToday: boolean;
   completedThisWeek: number;
+  freezesLeft: number;
+  freezesUsedThisWeek: number;
+  streakAtRisk: boolean;
 }
 
 export interface WeeklyData {

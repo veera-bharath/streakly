@@ -7,6 +7,12 @@ function getToken(): string | null {
   return localStorage.getItem('streakly_token');
 }
 
+export class ApiError extends Error {
+  constructor(message: string, public readonly data: Record<string, unknown> = {}) {
+    super(message);
+  }
+}
+
 async function req<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const res = await fetch(`${BASE}${path}`, {
@@ -18,23 +24,34 @@ async function req<T>(path: string, options: RequestInit = {}): Promise<T> {
     },
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Request failed');
+  if (!res.ok) throw new ApiError(data.error || 'Request failed', data);
   return data as T;
 }
 
 export const api = {
   auth: {
     register: (body: { username: string; email: string; password: string }) =>
-      req<{ token: string; user: { id: string; username: string; email: string } }>('/auth/register', {
+      req<{ userId: string; message: string }>('/auth/register', {
         method: 'POST',
         body: JSON.stringify(body),
       }),
+    verifyEmail: (body: { userId: string; otp: string }) =>
+      req<{ token: string; user: { id: string; username: string; email: string } }>('/auth/verify-email', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    resendOtp: (body: { userId: string }) =>
+      req<{ message: string }>('/auth/resend-otp', { method: 'POST', body: JSON.stringify(body) }),
     login: (body: { email: string; password: string }) =>
       req<{ token: string; user: { id: string; username: string; email: string } }>('/auth/login', {
         method: 'POST',
         body: JSON.stringify(body),
       }),
     me: () => req<{ id: string; username: string; email: string }>('/auth/me'),
+    forgotPassword: (body: { email: string }) =>
+      req<{ message: string }>('/auth/forgot-password', { method: 'POST', body: JSON.stringify(body) }),
+    resetPassword: (body: { token: string; newPassword: string }) =>
+      req<{ message: string }>('/auth/reset-password', { method: 'POST', body: JSON.stringify(body) }),
   },
   habits: {
     list: () => req<Habit[]>('/habits'),
@@ -53,6 +70,8 @@ export const api = {
       req<Habit>(`/habits/${id}/toggle`, { method: 'POST', body: JSON.stringify({ date, notes }) }),
     updateNote: (id: string, date: string, notes: string | null) =>
       req<Habit>(`/habits/${id}/completion`, { method: 'PATCH', body: JSON.stringify({ date, notes }) }),
+    useFreeze: (id: string, date?: string) =>
+      req<Habit>(`/habits/${id}/use-freeze`, { method: 'POST', body: JSON.stringify({ date }) }),
   },
   analytics: {
     weekly: () => req<{ data: WeeklyData[]; habits: string[] }>('/analytics/weekly'),
