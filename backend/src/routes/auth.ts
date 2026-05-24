@@ -30,7 +30,7 @@ function checkRateLimit(
 }
 
 function generateOtp(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return crypto.randomInt(100000, 1000000).toString();
 }
 
 const router = Router();
@@ -155,26 +155,40 @@ router.post('/verify-email', async (req: Request, res: Response) => {
     return;
   }
 
-  const attempts = (otpRow.attempts ?? 0) + 1;
+  const currentAttempts = otpRow.attempts ?? 0;
+  const attempts = currentAttempts + 1;
 
   if (otpRow.otp !== otp) {
     if (attempts >= 5) {
-      // Invalidate the OTP after 5 failed attempts
+      // Optimistic-concurrency guard: .eq('attempts', currentAttempts) ensures concurrent
+      // requests don't both reset the counter — only the first write succeeds.
       await db.from('email_verification_otps')
         .update({ used_at: new Date().toISOString(), attempts })
-        .eq('id', otpRow.id);
+        .eq('id', otpRow.id)
+        .eq('attempts', currentAttempts);
       res.status(400).json({ error: 'Too many incorrect attempts. Please request a new code.' });
     } else {
-      await db.from('email_verification_otps').update({ attempts }).eq('id', otpRow.id);
-      res.status(400).json({ error: `Incorrect code. ${5 - attempts} attempt${5 - attempts === 1 ? '' : 's'} remaining.` });
+      await db.from('email_verification_otps')
+        .update({ attempts })
+        .eq('id', otpRow.id)
+        .eq('attempts', currentAttempts);
+      const remaining = 5 - attempts;
+      res.status(400).json({ error: `Incorrect code. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.` });
     }
     return;
   }
 
-  // Mark OTP used and activate user
-  await db.from('email_verification_otps')
+  // Mark OTP used first — if this fails, abort so the OTP can't be replayed
+  const { error: markUsedError } = await db
+    .from('email_verification_otps')
     .update({ used_at: new Date().toISOString(), attempts })
     .eq('id', otpRow.id);
+
+  if (markUsedError) {
+    console.error('[verify-email] failed to mark OTP used:', markUsedError);
+    res.status(500).json({ error: 'Verification failed. Please try again.' });
+    return;
+  }
 
   const { error: verifyError } = await db
     .from('users')

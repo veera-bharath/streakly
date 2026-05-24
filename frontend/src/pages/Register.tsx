@@ -23,12 +23,13 @@ export function Register() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Resend cooldown
-  const [resendCooldown, setResendCooldown] = useState(0);
+  // Resend cooldown — pre-set to 60 when redirected from Login (OTP already sent by server)
+  const [resendCooldown, setResendCooldown] = useState(locationState?.userId ? 60 : 0);
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function startCooldown() {
     setResendCooldown(60);
+    if (cooldownRef.current) clearInterval(cooldownRef.current);
     cooldownRef.current = setInterval(() => {
       setResendCooldown(s => {
         if (s <= 1) { clearInterval(cooldownRef.current!); return 0; }
@@ -37,7 +38,19 @@ export function Register() {
     }, 1000);
   }
 
-  useEffect(() => () => { if (cooldownRef.current) clearInterval(cooldownRef.current); }, []);
+  // Kick off the interval tick if we mounted already in cooldown (redirect path)
+  useEffect(() => {
+    if (resendCooldown > 0 && !cooldownRef.current) {
+      cooldownRef.current = setInterval(() => {
+        setResendCooldown(s => {
+          if (s <= 1) { clearInterval(cooldownRef.current!); return 0; }
+          return s - 1;
+        });
+      }, 1000);
+    }
+    return () => { if (cooldownRef.current) clearInterval(cooldownRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // --- Step 1: submit registration form ---
   const handleRegister = async (e: FormEvent) => {

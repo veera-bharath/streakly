@@ -106,6 +106,9 @@ ON CONFLICT (name) DO NOTHING;
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT false;
 
+-- Backfill: existing users are considered verified (they pre-date email verification)
+UPDATE users SET is_verified = true WHERE is_verified = false;
+
 CREATE TABLE IF NOT EXISTS email_verification_otps (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
