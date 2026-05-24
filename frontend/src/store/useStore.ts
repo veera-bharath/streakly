@@ -16,7 +16,8 @@ interface Store {
   addHabit: (h: Habit) => void;
   updateHabit: (h: Habit) => void;
   removeHabit: (id: string) => void;
-  createHabit: (name: string, description?: string, frequencyType?: FrequencyType, frequencyTarget?: number) => Promise<void>;
+  createHabit: (name: string, description?: string, frequencyType?: FrequencyType, frequencyTarget?: number, color?: string, icon?: string) => Promise<void>;
+  editHabit: (id: string, patch: { name?: string; description?: string; color?: string; icon?: string }) => Promise<void>;
   deleteHabit: (id: string) => Promise<void>;
   toggleHabit: (id: string, date?: string) => Promise<void>;
   initAuth: () => Promise<boolean>;
@@ -55,9 +56,14 @@ export const useStore = create<Store>((set, get) => ({
   updateHabit: (h) => set(s => ({ habits: s.habits.map(x => x.id === h.id ? h : x) })),
   removeHabit: (id) => set(s => ({ habits: s.habits.filter(x => x.id !== id) })),
 
-  createHabit: async (name, description, frequencyType = 'daily', frequencyTarget = 1) => {
-    await api.habits.create({ name, description, frequencyType, frequencyTarget });
+  createHabit: async (name, description, frequencyType = 'daily', frequencyTarget = 1, color, icon) => {
+    await api.habits.create({ name, description, frequencyType, frequencyTarget, color, icon });
     // State update via socket 'habit:created' to avoid duplicate
+  },
+
+  editHabit: async (id, patch) => {
+    await api.habits.update(id, patch);
+    // State update via socket 'habit:updated' to avoid duplicate
   },
 
   deleteHabit: async (id) => {
