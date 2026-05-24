@@ -207,17 +207,23 @@ export function createHabitsRouter(io: Server) {
     const todayStr = today();
     const weekStart = getWeekMonday(todayStr);
 
-    const [statsRes, freezeCountRes] = await Promise.all([
+    const [statsRes, freezeCountRes, frozenTodayRes] = await Promise.all([
       db.from('habit_stats').select('*').eq('habit_id', habitId).single(),
       db.from('streak_freezes')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', req.userId)
         .eq('week_start', weekStart)
         .not('used_on', 'is', null),
+      db.from('streak_freezes')
+        .select('id')
+        .eq('habit_id', habitId)
+        .eq('used_on', todayStr)
+        .single(),
     ]);
 
     const freezesUsedThisWeek = freezeCountRes.count ?? 0;
     const freezesLeft = Math.max(0, 1 - freezesUsedThisWeek);
+    const frozenToday = !!frozenTodayRes.data;
 
     let currentStreak: number;
     let longestStreak: number;
@@ -234,7 +240,7 @@ export function createHabitsRouter(io: Server) {
       completedToday = enriched.completedToday;
     }
 
-    const streakAtRisk = currentStreak > 0 && !completedToday && habit.frequency_type === 'daily';
+    const streakAtRisk = currentStreak > 0 && !completedToday && !frozenToday && habit.frequency_type === 'daily';
 
     res.json({
       currentStreak,
@@ -249,7 +255,7 @@ export function createHabitsRouter(io: Server) {
   // Manually apply a freeze to a missed day
   router.post('/:id/use-freeze', async (req: AuthenticatedRequest, res: Response) => {
     const habitId = req.params.id;
-    const targetDate = req.body.date || addDays(today(), -1);
+    const targetDate = req.body.date ?? addDays(today(), -1);
 
     const { data: habit } = await db
       .from('habits')

@@ -52,6 +52,7 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
   const { toggleHabit, deleteHabit, useFreeze } = useStore();
   const [toggling, setToggling]       = useState(false);
   const [freezing, setFreezing]       = useState(false);
+  const [freezeError, setFreezeError] = useState(false);
   const [toggleError, setToggleError] = useState(false);
   const [showDelete, setShowDelete]   = useState(false);
   const [showUndoToast, setShowUndoToast] = useState(false);
@@ -91,7 +92,14 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
   const handleUseFreeze = async () => {
     if (freezing) return;
     setFreezing(true);
-    try { await useFreeze(habit.id); } catch { /* ignore */ } finally { setFreezing(false); }
+    try {
+      await useFreeze(habit.id);
+    } catch {
+      setFreezeError(true);
+      setTimeout(() => setFreezeError(false), 2000);
+    } finally {
+      setFreezing(false);
+    }
   };
 
   const completionRate = (() => {
@@ -233,10 +241,14 @@ export const HabitCard = memo(function HabitCard({ habit, animDelay = 0 }: Props
               className="btn btn-sm btn-ghost"
               onClick={handleUseFreeze}
               disabled={freezing}
-              style={{ color: 'var(--blue, #3b82f6)', borderColor: 'var(--blue, #3b82f6)', padding: '3px 10px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}
+              style={{
+                color: freezeError ? 'var(--red)' : 'var(--blue, #3b82f6)',
+                borderColor: freezeError ? 'var(--red)' : 'var(--blue, #3b82f6)',
+                padding: '3px 10px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12,
+              }}
             >
               <Shield size={11} strokeWidth={2.5} />
-              {freezing ? 'Saving…' : 'Use freeze'}
+              {freezing ? 'Saving…' : freezeError ? 'Failed' : 'Use freeze'}
             </button>
           )}
         </div>

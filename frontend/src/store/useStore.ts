@@ -74,15 +74,18 @@ export const useStore = create<Store>((set, get) => ({
       const today = new Date().toISOString().split('T')[0];
       const target = date ?? today;
       const wasCompleted = prev.completions.includes(target);
+      const nextCompletedToday = target === today ? !prev.completedToday : prev.completedToday;
       get().updateHabit({
         ...prev,
         completions: wasCompleted
           ? prev.completions.filter(d => d !== target)
           : [...prev.completions, target],
-        completedToday: target === today ? !prev.completedToday : prev.completedToday,
+        completedToday: nextCompletedToday,
         completedThisWeek: wasCompleted
           ? Math.max(0, prev.completedThisWeek - 1)
           : prev.completedThisWeek + 1,
+        // clear at-risk flag immediately when marking complete for today
+        streakAtRisk: nextCompletedToday ? false : prev.streakAtRisk,
       });
     }
 
