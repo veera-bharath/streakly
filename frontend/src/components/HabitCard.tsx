@@ -60,6 +60,10 @@ function NoteRow({ habitId, date, initialNote }: { habitId: string; date: string
     if (editing) inputRef.current?.focus();
   }, [editing]);
 
+  useEffect(() => {
+    if (!editing) setValue(initialNote ?? '');
+  }, [initialNote, editing]);
+
   const save = async () => {
     const note = value.trim() || null;
     try {

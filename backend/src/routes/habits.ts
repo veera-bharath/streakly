@@ -226,10 +226,16 @@ export function createHabitsRouter(io: Server) {
 
     if (!completion) { res.status(404).json({ error: 'Completion not found' }); return; }
 
-    await db
+    if (typeof notes === 'string' && notes.length > 200) {
+      res.status(400).json({ error: 'notes must be 200 characters or fewer' }); return;
+    }
+
+    const { error: updateError } = await db
       .from('habit_completions')
       .update({ notes: typeof notes === 'string' && notes.trim() ? notes.trim() : null })
       .eq('id', completion.id);
+
+    if (updateError) { res.status(500).json({ error: updateError.message }); return; }
 
     const { data: habit, error } = await db
       .from('habits')
