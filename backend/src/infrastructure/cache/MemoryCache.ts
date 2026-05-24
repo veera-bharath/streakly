@@ -16,7 +16,7 @@ export class MemoryCache<T> implements ICache<T> {
   async get(key: string): Promise<T | null> {
     const entry = this.store.get(key);
     if (!entry) return null;
-    if (entry.expiresAt !== null && Date.now() > entry.expiresAt) {
+    if (entry.expiresAt !== null && Date.now() >= entry.expiresAt) {
       this.store.delete(key);
       return null;
     }
@@ -24,10 +24,14 @@ export class MemoryCache<T> implements ICache<T> {
   }
 
   async set(key: string, value: T, ttlSeconds?: number): Promise<void> {
-    if (this.store.size >= this.maxSize) this.store.clear();
+    if (this.store.size >= this.maxSize) {
+      // evict the oldest entry (insertion order) rather than clearing all
+      const oldest = this.store.keys().next().value;
+      if (oldest !== undefined) this.store.delete(oldest);
+    }
     this.store.set(key, {
       value,
-      expiresAt: ttlSeconds ? Date.now() + ttlSeconds * 1000 : null,
+      expiresAt: ttlSeconds !== undefined ? Date.now() + ttlSeconds * 1000 : null,
     });
   }
 

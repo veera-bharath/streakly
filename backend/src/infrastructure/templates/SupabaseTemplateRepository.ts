@@ -12,7 +12,12 @@ export class SupabaseTemplateRepository implements ITemplateRepository {
       .eq('name', name)
       .single();
 
-    if (error || !data) return null;
+    if (error) {
+      // PGRST116 = no rows returned — treat as not found
+      if ((error as { code?: string }).code === 'PGRST116') return null;
+      throw new Error(`Failed to fetch template "${name}": ${error.message}`);
+    }
+
     return data as TemplateEntity;
   }
 }
