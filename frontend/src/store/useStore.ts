@@ -16,9 +16,10 @@ interface Store {
   addHabit: (h: Habit) => void;
   updateHabit: (h: Habit) => void;
   removeHabit: (id: string) => void;
-  createHabit: (name: string, description?: string, frequencyType?: FrequencyType, frequencyTarget?: number) => Promise<void>;
+  createHabit: (name: string, description?: string, frequencyType?: FrequencyType, frequencyTarget?: number, color?: string, icon?: string) => Promise<void>;
+  editHabit: (id: string, patch: { name?: string; description?: string; color?: string; icon?: string }) => Promise<void>;
   deleteHabit: (id: string) => Promise<void>;
-  toggleHabit: (id: string, date?: string) => Promise<void>;
+  toggleHabit: (id: string, date?: string, notes?: string) => Promise<void>;
   useFreeze: (id: string, date?: string) => Promise<void>;
   initAuth: () => Promise<boolean>;
 }
@@ -56,9 +57,14 @@ export const useStore = create<Store>((set, get) => ({
   updateHabit: (h) => set(s => ({ habits: s.habits.map(x => x.id === h.id ? h : x) })),
   removeHabit: (id) => set(s => ({ habits: s.habits.filter(x => x.id !== id) })),
 
-  createHabit: async (name, description, frequencyType = 'daily', frequencyTarget = 1) => {
-    await api.habits.create({ name, description, frequencyType, frequencyTarget });
+  createHabit: async (name, description, frequencyType = 'daily', frequencyTarget = 1, color, icon) => {
+    await api.habits.create({ name, description, frequencyType, frequencyTarget, color, icon });
     // State update via socket 'habit:created' to avoid duplicate
+  },
+
+  editHabit: async (id, patch) => {
+    await api.habits.update(id, patch);
+    // State update via socket 'habit:updated' to avoid duplicate
   },
 
   deleteHabit: async (id) => {
@@ -66,20 +72,20 @@ export const useStore = create<Store>((set, get) => ({
     get().removeHabit(id);
   },
 
-  toggleHabit: async (id, date) => {
+  toggleHabit: async (id, date, notes) => {
     const prev = get().habits.find(h => h.id === id);
 
     // Optimistic update — flip completedToday and adjust completions array
     if (prev) {
       const today = new Date().toISOString().split('T')[0];
       const target = date ?? today;
-      const wasCompleted = prev.completions.includes(target);
+      const wasCompleted = prev.completions.some(c => c.date === target);
       const nextCompletedToday = target === today ? !prev.completedToday : prev.completedToday;
       get().updateHabit({
         ...prev,
         completions: wasCompleted
-          ? prev.completions.filter(d => d !== target)
-          : [...prev.completions, target],
+          ? prev.completions.filter(c => c.date !== target)
+          : [...prev.completions, { date: target, notes: notes ?? null }],
         completedToday: nextCompletedToday,
         completedThisWeek: wasCompleted
           ? Math.max(0, prev.completedThisWeek - 1)
@@ -90,7 +96,7 @@ export const useStore = create<Store>((set, get) => ({
     }
 
     try {
-      const updated = await api.habits.toggle(id, date);
+      const updated = await api.habits.toggle(id, date, notes);
       get().updateHabit(updated); // reconcile with authoritative server data
     } catch (err) {
       if (prev) get().updateHabit(prev); // rollback

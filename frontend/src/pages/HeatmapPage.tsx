@@ -174,9 +174,9 @@ export function HeatmapPage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {habits.map((h, i) => {
-            const totalInRange = h.completions.filter(d => {
+            const totalInRange = h.completions.filter(c => {
               const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - range);
-              return d >= toDateStr(cutoff);
+              return c.date >= toDateStr(cutoff);
             }).length;
 
             return (
@@ -209,7 +209,7 @@ export function HeatmapPage() {
                 </div>
 
                 {/* Heatmap */}
-                <HabitHeatmap completions={h.completions} color={h.color} weeks={weeks} />
+                <HabitHeatmap completions={h.completions.map(c => c.date)} color={h.color} weeks={weeks} />
                 <HeatmapLegend color={h.color} />
               </div>
             );

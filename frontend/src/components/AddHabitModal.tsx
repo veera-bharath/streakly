@@ -1,21 +1,33 @@
 import { useState, useRef, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { FrequencyType } from '../types';
+import { FrequencyType, Habit } from '../types';
 
-interface Props { onClose: () => void; }
+const COLORS = ['#f59e0b', '#22c55e', '#3b82f6', '#ec4899', '#8b5cf6', '#14b8a6', '#f97316'];
+const ICONS  = ['🔥', '💪', '📚', '🏃', '🧘', '💧', '🎯', '✍️', '🎵', '🌱'];
+
+interface Props {
+  onClose: () => void;
+  habit?: Habit;
+}
 
 const FREQ_LABELS: Record<FrequencyType, string> = {
   daily: 'Every day',
   weekly: 'X times per week',
 };
 
-export function AddHabitModal({ onClose }: Props) {
-  const { createHabit } = useStore();
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [frequencyType, setFrequencyType] = useState<FrequencyType>('daily');
-  const [frequencyTarget, setFrequencyTarget] = useState(3);
+export function AddHabitModal({ onClose, habit }: Props) {
+  const { createHabit, editHabit, habits } = useStore();
+  const isEdit = !!habit;
+
+  const defaultColorIdx = habits.length % COLORS.length;
+
+  const [name, setName] = useState(habit?.name ?? '');
+  const [description, setDescription] = useState(habit?.description ?? '');
+  const [frequencyType, setFrequencyType] = useState<FrequencyType>(habit?.frequencyType ?? 'daily');
+  const [frequencyTarget, setFrequencyTarget] = useState(habit?.frequencyTarget ?? 3);
+  const [selectedColor, setSelectedColor] = useState(habit?.color ?? COLORS[defaultColorIdx]);
+  const [selectedIcon, setSelectedIcon] = useState(habit?.icon ?? ICONS[defaultColorIdx]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -27,10 +39,19 @@ export function AddHabitModal({ onClose }: Props) {
     if (!name.trim()) { setError('Habit name is required'); return; }
     setLoading(true); setError('');
     try {
-      await createHabit(name.trim(), description.trim(), frequencyType, frequencyTarget);
+      if (isEdit) {
+        await editHabit(habit.id, {
+          name: name.trim(),
+          description: description.trim(),
+          color: selectedColor,
+          icon: selectedIcon,
+        });
+      } else {
+        await createHabit(name.trim(), description.trim(), frequencyType, frequencyTarget, selectedColor, selectedIcon);
+      }
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create habit');
+      setError(err instanceof Error ? err.message : isEdit ? 'Failed to update habit' : 'Failed to create habit');
       setLoading(false);
     }
   };
@@ -48,8 +69,12 @@ export function AddHabitModal({ onClose }: Props) {
       <div className="card anim-up" style={{ width: '100%', maxWidth: 440, padding: 28, boxShadow: 'var(--shadow-lg)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-.02em' }}>New Habit</div>
-            <div style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 3 }}>Build something that lasts</div>
+            <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-.02em' }}>
+              {isEdit ? 'Edit Habit' : 'New Habit'}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 3 }}>
+              {isEdit ? 'Update name, description, icon or color' : 'Build something that lasts'}
+            </div>
           </div>
           <button onClick={onClose} className="btn-icon" style={{ color: 'var(--text-3)' }}>
             <X size={18} />
@@ -79,37 +104,87 @@ export function AddHabitModal({ onClose }: Props) {
             />
           </div>
 
-          {/* Frequency type */}
+          {/* Color picker */}
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: 8 }}>
-              Frequency
+              Color
             </label>
             <div style={{ display: 'flex', gap: 8 }}>
-              {(['daily', 'weekly'] as FrequencyType[]).map(ft => (
+              {COLORS.map(c => (
                 <button
-                  key={ft}
+                  key={c}
                   type="button"
-                  onClick={() => setFrequencyType(ft)}
+                  onClick={() => setSelectedColor(c)}
                   style={{
-                    flex: 1, padding: '8px 12px', borderRadius: 'var(--radius)',
-                    border: `1.5px solid ${frequencyType === ft ? 'var(--green)' : 'var(--border)'}`,
-                    background: frequencyType === ft ? 'var(--green-bg)' : 'var(--surface-2)',
-                    color: frequencyType === ft ? 'var(--green)' : 'var(--text-2)',
-                    fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                    transition: 'all .15s',
+                    width: 28, height: 28, borderRadius: '50%',
+                    background: c, border: 'none', cursor: 'pointer', flexShrink: 0,
+                    outline: selectedColor === c ? `3px solid ${c}` : '3px solid transparent',
+                    outlineOffset: 2,
+                    transition: 'outline .15s',
                   }}
-                >
-                  {ft === 'daily' ? 'Daily' : 'Weekly'}
-                </button>
+                />
               ))}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>
-              {FREQ_LABELS[frequencyType]}
             </div>
           </div>
 
-          {/* Target (only for weekly) */}
-          {frequencyType === 'weekly' && (
+          {/* Icon picker */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: 8 }}>
+              Icon
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+              {ICONS.map(ic => (
+                <button
+                  key={ic}
+                  type="button"
+                  onClick={() => setSelectedIcon(ic)}
+                  style={{
+                    height: 38, borderRadius: 'var(--radius)',
+                    border: `1.5px solid ${selectedIcon === ic ? selectedColor : 'var(--border)'}`,
+                    background: selectedIcon === ic ? `${selectedColor}22` : 'var(--surface-2)',
+                    fontSize: 18, cursor: 'pointer',
+                    transition: 'border-color .15s, background .15s',
+                  }}
+                >
+                  {ic}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Frequency type — create mode only */}
+          {!isEdit && (
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: 8 }}>
+                Frequency
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {(['daily', 'weekly'] as FrequencyType[]).map(ft => (
+                  <button
+                    key={ft}
+                    type="button"
+                    onClick={() => setFrequencyType(ft)}
+                    style={{
+                      flex: 1, padding: '8px 12px', borderRadius: 'var(--radius)',
+                      border: `1.5px solid ${frequencyType === ft ? 'var(--green)' : 'var(--border)'}`,
+                      background: frequencyType === ft ? 'var(--green-bg)' : 'var(--surface-2)',
+                      color: frequencyType === ft ? 'var(--green)' : 'var(--text-2)',
+                      fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                      transition: 'all .15s',
+                    }}
+                  >
+                    {ft === 'daily' ? 'Daily' : 'Weekly'}
+                  </button>
+                ))}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>
+                {FREQ_LABELS[frequencyType]}
+              </div>
+            </div>
+          )}
+
+          {/* Target — create mode weekly only */}
+          {!isEdit && frequencyType === 'weekly' && (
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: 8 }}>
                 Target — {frequencyTarget}x per week
@@ -150,7 +225,7 @@ export function AddHabitModal({ onClose }: Props) {
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} disabled={loading}>
-              {loading ? 'Creating…' : 'Create Habit'}
+              {loading ? (isEdit ? 'Saving…' : 'Creating…') : (isEdit ? 'Save Changes' : 'Create Habit')}
             </button>
           </div>
         </form>

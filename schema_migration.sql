@@ -136,3 +136,10 @@ INSERT INTO email_templates (name, subject, html_body, text_body) VALUES (
   'Hi {{name}}, your Streakly verification code is: {{otp}} — expires in 10 minutes.'
 )
 ON CONFLICT (name) DO NOTHING;
+
+-- ============================================================
+-- Completion Notes (issue #12)
+-- ============================================================
+
+ALTER TABLE habit_completions
+  ADD COLUMN IF NOT EXISTS notes TEXT;
