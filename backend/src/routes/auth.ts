@@ -35,7 +35,7 @@ router.post('/register', async (req: Request, res: Response) => {
 
   const { data, error } = await db
     .from('users')
-    .insert({ username, email, password_hash: passwordHash })
+    .insert({ username, email: email.toLowerCase(), password_hash: passwordHash })
     .select('id, username, email')
     .single();
 
@@ -59,7 +59,7 @@ router.post('/login', async (req: Request, res: Response) => {
   const { data: user, error } = await db
     .from('users')
     .select('id, username, email, password_hash')
-    .eq('email', email)
+    .eq('email', email.toLowerCase())
     .single();
 
   if (error || !user || !(await bcrypt.compare(password, user.password_hash))) {
@@ -125,7 +125,7 @@ router.post('/reset-password', async (req: Request, res: Response) => {
     res.status(400).json({ error: 'Token and new password are required' });
     return;
   }
-  if (typeof newPassword !== 'string' || newPassword.length < 6) {
+  if (typeof token !== 'string' || typeof newPassword !== 'string' || newPassword.length < 6) {
     res.status(400).json({ error: 'Password must be at least 6 characters' });
     return;
   }
@@ -152,7 +152,16 @@ router.post('/reset-password', async (req: Request, res: Response) => {
 
   if (updateError) { res.status(500).json({ error: 'Failed to update password' }); return; }
 
-  await db.from('password_reset_tokens').update({ used_at: new Date().toISOString() }).eq('id', row.id);
+  const { error: markUsedError } = await db
+    .from('password_reset_tokens')
+    .update({ used_at: new Date().toISOString() })
+    .eq('id', row.id);
+
+  if (markUsedError) {
+    console.error('[reset-password] failed to mark token used:', markUsedError);
+    res.status(500).json({ error: 'Password updated but token invalidation failed — please contact support' });
+    return;
+  }
 
   res.json({ message: 'Password updated. Please sign in.' });
 });
