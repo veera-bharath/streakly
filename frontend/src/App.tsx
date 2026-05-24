@@ -8,6 +8,8 @@ import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
+import { ForgotPassword } from './pages/ForgotPassword';
+import { ResetPassword } from './pages/ResetPassword';
 import { AddHabitModal } from './components/AddHabitModal';
 
 const Analytics   = lazy(() => import('./pages/Analytics').then(m => ({ default: m.Analytics })));
@@ -72,8 +74,10 @@ export function App() {
     <ThemeContext.Provider value={themeCtx}>
     <BrowserRouter basename={basename}>
       <Routes>
-        <Route path="/login"    element={token ? <Navigate to="/" replace /> : <Login />} />
-        <Route path="/register" element={token ? <Navigate to="/" replace /> : <Register />} />
+        <Route path="/login"            element={token ? <Navigate to="/" replace /> : <Login />} />
+        <Route path="/register"         element={token ? <Navigate to="/" replace /> : <Register />} />
+        <Route path="/forgot-password"  element={token ? <Navigate to="/" replace /> : <ForgotPassword />} />
+        <Route path="/reset-password"   element={token ? <Navigate to="/" replace /> : <ResetPassword />} />
         <Route path="/*"        element={<RequireAuth><AppLayout /></RequireAuth>} />
       </Routes>
     </BrowserRouter>
