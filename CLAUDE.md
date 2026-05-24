@@ -113,7 +113,10 @@ PORT=3001
 JWT_SECRET=your-secret
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
+FRONTEND_URL=http://localhost:5173
 ```
+
+`FRONTEND_URL` is used to build password-reset links in emails. **Must include the full base path** — for the GitHub Pages deployment set it to `https://veera-bharath.github.io/streakly` (no trailing slash). Omitting `/streakly` produces broken reset links.
 
 **Frontend** — no `.env` needed for local dev. Production env vars are injected by the GitHub Actions workflow. For a custom production build:
 ```

@@ -66,3 +66,36 @@ INSERT INTO email_templates (name, subject, html_body, text_body) VALUES
   'Hi {{name}}, you have a {{streak}}-day streak. Do not break it!'
 )
 ON CONFLICT (name) DO NOTHING;
+
+-- ============================================================
+-- Forgot Password: Token Table + Email Template (issue #9)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token      TEXT UNIQUE NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_prt_token   ON password_reset_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_prt_user_id ON password_reset_tokens(user_id);
+
+INSERT INTO email_templates (name, subject, html_body, text_body) VALUES (
+  'forgot-password',
+  'Reset your Streakly password',
+  '<div style="font-family:sans-serif;max-width:480px;margin:auto">
+    <h2 style="color:#00c853">Reset your password</h2>
+    <p>Hi {{name}},</p>
+    <p>We received a request to reset your Streakly password. Click the button below — this link expires in <strong>1 hour</strong>.</p>
+    <a href="{{resetUrl}}" style="display:inline-block;padding:12px 24px;background:#00c853;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">
+      Reset Password
+    </a>
+    <p style="color:#888;font-size:13px">If you did not request this, ignore this email. Your password will not change.</p>
+    <p style="color:#888;font-size:12px">Link: {{resetUrl}}</p>
+  </div>',
+  'Hi {{name}}, reset your Streakly password here: {{resetUrl}} — expires in 1 hour. If you did not request this, ignore this email.'
+)
+ON CONFLICT (name) DO NOTHING;

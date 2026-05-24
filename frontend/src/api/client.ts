@@ -35,6 +35,10 @@ export const api = {
         body: JSON.stringify(body),
       }),
     me: () => req<{ id: string; username: string; email: string }>('/auth/me'),
+    forgotPassword: (body: { email: string }) =>
+      req<{ message: string }>('/auth/forgot-password', { method: 'POST', body: JSON.stringify(body) }),
+    resetPassword: (body: { token: string; newPassword: string }) =>
+      req<{ message: string }>('/auth/reset-password', { method: 'POST', body: JSON.stringify(body) }),
   },
   habits: {
     list: () => req<Habit[]>('/habits'),
