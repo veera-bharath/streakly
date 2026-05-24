@@ -21,12 +21,16 @@ type DbHabit = {
 };
 
 async function enrichHabit(habit: DbHabit) {
-  const { data: completions } = await db
+  const { data: rows } = await db
     .from('habit_completions')
-    .select('date')
+    .select('date, notes')
     .eq('habit_id', habit.id);
 
-  const dates = (completions ?? []).map((c: { date: string }) => c.date);
+  const completions = (rows ?? []).map((c: { date: string; notes: string | null }) => ({
+    date: c.date,
+    notes: c.notes ?? null,
+  }));
+  const dates = completions.map(c => c.date);
   const frequencyType = habit.frequency_type ?? 'daily';
   const frequencyTarget = habit.frequency_target ?? 1;
   const { current, longest, streakUnit } = calculateStreak(dates, frequencyType, frequencyTarget);
@@ -42,7 +46,7 @@ async function enrichHabit(habit: DbHabit) {
     frequencyType,
     frequencyTarget,
     createdAt: habit.created_at,
-    completions: dates,
+    completions,
     streak: current,
     longestStreak: longest,
     streakUnit,
@@ -173,7 +177,8 @@ export function createHabitsRouter(io: Server) {
   });
 
   router.post('/:id/toggle', async (req: AuthenticatedRequest, res: Response) => {
-    const targetDate = req.body.date || today();
+    const { date, notes } = req.body;
+    const targetDate = date || today();
     const habitId = req.params.id;
 
     const { data: existing } = await db
@@ -188,8 +193,43 @@ export function createHabitsRouter(io: Server) {
     } else {
       await db
         .from('habit_completions')
-        .insert({ habit_id: habitId, user_id: req.userId, date: targetDate });
+        .insert({ habit_id: habitId, user_id: req.userId, date: targetDate, notes: notes?.trim() || null });
     }
+
+    const { data: habit, error } = await db
+      .from('habits')
+      .select('*')
+      .eq('id', habitId)
+      .eq('user_id', req.userId)
+      .single();
+
+    if (error || !habit) { res.status(404).json({ error: 'Habit not found' }); return; }
+
+    const enriched = await enrichHabit(habit);
+    io.to(`user:${req.userId}`).emit('habit:toggled', enriched);
+    res.json(enriched);
+  });
+
+  router.patch('/:id/completion', async (req: AuthenticatedRequest, res: Response) => {
+    const habitId = req.params.id;
+    const { date, notes } = req.body;
+
+    if (!date) { res.status(400).json({ error: 'date is required' }); return; }
+
+    const { data: completion } = await db
+      .from('habit_completions')
+      .select('id')
+      .eq('habit_id', habitId)
+      .eq('user_id', req.userId)
+      .eq('date', date)
+      .single();
+
+    if (!completion) { res.status(404).json({ error: 'Completion not found' }); return; }
+
+    await db
+      .from('habit_completions')
+      .update({ notes: typeof notes === 'string' && notes.trim() ? notes.trim() : null })
+      .eq('id', completion.id);
 
     const { data: habit, error } = await db
       .from('habits')
