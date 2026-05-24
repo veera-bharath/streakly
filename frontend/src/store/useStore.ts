@@ -19,6 +19,7 @@ interface Store {
   createHabit: (name: string, description?: string, frequencyType?: FrequencyType, frequencyTarget?: number) => Promise<void>;
   deleteHabit: (id: string) => Promise<void>;
   toggleHabit: (id: string, date?: string) => Promise<void>;
+  useFreeze: (id: string, date?: string) => Promise<void>;
   initAuth: () => Promise<boolean>;
 }
 
@@ -92,6 +93,11 @@ export const useStore = create<Store>((set, get) => ({
       if (prev) get().updateHabit(prev); // rollback
       throw err;
     }
+  },
+
+  useFreeze: async (id, date) => {
+    const updated = await api.habits.useFreeze(id, date);
+    get().updateHabit(updated);
   },
 
   initAuth: async () => {

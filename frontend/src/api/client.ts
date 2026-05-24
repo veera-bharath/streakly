@@ -66,6 +66,8 @@ export const api = {
     delete: (id: string) => req<{ success: boolean }>(`/habits/${id}`, { method: 'DELETE' }),
     toggle: (id: string, date?: string) =>
       req<Habit>(`/habits/${id}/toggle`, { method: 'POST', body: JSON.stringify({ date }) }),
+    useFreeze: (id: string, date?: string) =>
+      req<Habit>(`/habits/${id}/use-freeze`, { method: 'POST', body: JSON.stringify({ date }) }),
   },
   analytics: {
     weekly: () => req<{ data: WeeklyData[]; habits: string[] }>('/analytics/weekly'),

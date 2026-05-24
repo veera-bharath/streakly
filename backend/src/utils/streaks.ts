@@ -55,6 +55,47 @@ function calcDailyStreak(completions: string[]): { current: number; longest: num
   return { current, longest };
 }
 
+function calcDailyStreakWithFreezes(
+  completions: string[],
+  freezeDates: string[],
+): { current: number; longest: number } {
+  // A day is "covered" if it has a completion OR a freeze applied to it
+  const covered = new Set([...new Set(completions), ...new Set(freezeDates)]);
+  if (covered.size === 0) return { current: 0, longest: 0 };
+
+  const sortedDates = [...covered].sort();
+
+  let longest = 1;
+  let run = 1;
+  for (let i = 1; i < sortedDates.length; i++) {
+    const diff =
+      (new Date(sortedDates[i] + 'T00:00:00').getTime() -
+        new Date(sortedDates[i - 1] + 'T00:00:00').getTime()) /
+      86400000;
+    if (diff === 1) {
+      run++;
+      if (run > longest) longest = run;
+    } else {
+      run = 1;
+    }
+  }
+
+  const todayStr = today();
+  const yesterdayStr = addDays(todayStr, -1);
+  const start = covered.has(todayStr) ? todayStr : covered.has(yesterdayStr) ? yesterdayStr : null;
+
+  let current = 0;
+  if (start) {
+    let d = start;
+    while (covered.has(d)) {
+      current++;
+      d = addDays(d, -1);
+    }
+  }
+
+  return { current, longest };
+}
+
 function calcWeeklyStreak(
   completions: string[],
   target: number,
@@ -117,6 +158,25 @@ export function calculateStreak(
     return { current, longest, streakUnit: 'weeks' };
   }
   const { current, longest } = calcDailyStreak(completions);
+  return { current, longest, streakUnit: 'days' };
+}
+
+export function calculateStreakWithFreezes(
+  completions: string[],
+  freezeDates: string[],
+  frequencyType: 'daily' | 'weekly' = 'daily',
+  frequencyTarget = 1,
+): { current: number; longest: number; streakUnit: 'days' | 'weeks' } {
+  const streakUnit: 'days' | 'weeks' = frequencyType === 'weekly' ? 'weeks' : 'days';
+  if (completions.length === 0 && freezeDates.length === 0) {
+    return { current: 0, longest: 0, streakUnit };
+  }
+  if (frequencyType === 'weekly') {
+    // Freeze logic for weekly habits not implemented — fall back to standard calculation
+    const { current, longest } = calcWeeklyStreak(completions, frequencyTarget);
+    return { current, longest, streakUnit: 'weeks' };
+  }
+  const { current, longest } = calcDailyStreakWithFreezes(completions, freezeDates);
   return { current, longest, streakUnit: 'days' };
 }
 
