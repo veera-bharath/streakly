@@ -123,6 +123,13 @@ export function createHabitsRouter(io: Server) {
 
     if (!existing) { res.status(403).json({ error: 'Forbidden' }); return; }
 
+    if (color !== undefined && !COLORS.includes(color)) {
+      res.status(400).json({ error: 'Invalid color' }); return;
+    }
+    if (icon !== undefined && !ICONS.includes(icon)) {
+      res.status(400).json({ error: 'Invalid icon' }); return;
+    }
+
     const patch: Record<string, string> = {};
     if (name !== undefined) patch.name = name.trim();
     if (description !== undefined) patch.description = description;
@@ -131,6 +138,10 @@ export function createHabitsRouter(io: Server) {
 
     if (patch.name !== undefined && !patch.name) {
       res.status(400).json({ error: 'Name cannot be empty' }); return;
+    }
+
+    if (Object.keys(patch).length === 0) {
+      res.status(400).json({ error: 'No fields to update' }); return;
     }
 
     const { data: habit, error } = await db
