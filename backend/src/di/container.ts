@@ -3,8 +3,10 @@ import { SupabaseTemplateRepository } from '../infrastructure/templates/Supabase
 import { TemplateService } from '../application/templates/TemplateService';
 import { TemplateEntity } from '../core/templates/TemplateEntity';
 import { ConsoleEmailProvider } from '../infrastructure/email/ConsoleEmailProvider';
+import { BrevoEmailProvider } from '../infrastructure/email/BrevoEmailProvider';
 import { EmailService } from '../application/email/EmailService';
 import { IEmailService } from '../core/email/IEmailService';
+import { IEmailProvider } from '../core/email/IEmailProvider';
 
 let _templateService: TemplateService | undefined;
 let _emailService: IEmailService | undefined;
@@ -23,10 +25,31 @@ export function getTemplateService(): TemplateService {
   return _templateService;
 }
 
-// Swap ConsoleEmailProvider for SendGridEmailProvider / ResendEmailProvider in production
+function buildEmailProvider(): IEmailProvider {
+  const { SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM_ADDRESS, SMTP_FROM_NAME } = process.env;
+  if (SMTP_HOST && SMTP_USERNAME && SMTP_PASSWORD && SMTP_FROM_ADDRESS) {
+    const port = SMTP_PORT !== undefined ? parseInt(SMTP_PORT, 10) : 587;
+    if (Number.isNaN(port) || port < 1 || port > 65535) {
+      throw new Error(`Invalid SMTP_PORT: "${SMTP_PORT}". Must be a number between 1 and 65535.`);
+    }
+    return new BrevoEmailProvider({
+      host: SMTP_HOST,
+      port,
+      username: SMTP_USERNAME,
+      password: SMTP_PASSWORD,
+      fromAddress: SMTP_FROM_ADDRESS,
+      fromName: SMTP_FROM_NAME ?? 'Streakly',
+    });
+  }
+  return new ConsoleEmailProvider();
+}
+
+// Provider is selected at first call based on env vars:
+//   SMTP_* set → BrevoEmailProvider (or any SMTP relay)
+//   SMTP_* absent → ConsoleEmailProvider (dev/test)
 export function getEmailService(): IEmailService {
   if (!_emailService) {
-    _emailService = new EmailService(getTemplateService(), new ConsoleEmailProvider());
+    _emailService = new EmailService(getTemplateService(), buildEmailProvider());
   }
   return _emailService;
 }

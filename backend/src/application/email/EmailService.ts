@@ -3,6 +3,14 @@ import { IEmailService, SendTemplateParams } from '../../core/email/IEmailServic
 import { IEmailProvider } from '../../core/email/IEmailProvider';
 import { TemplateService } from '../templates/TemplateService';
 
+// SMTP 5xx codes are permanent failures — don't retry, except 421 (service temporarily unavailable)
+function isRetriableSmtpError(err: unknown): boolean {
+  const code = (err as { responseCode?: number }).responseCode;
+  if (!code) return true;       // non-SMTP error (network, timeout) — retry
+  if (code === 421) return true; // temporary unavailable — retry
+  return code < 500;            // 4xx transient — retry; 5xx permanent — don't
+}
+
 export class EmailService implements IEmailService {
   constructor(
     private readonly templateService: TemplateService,
@@ -35,7 +43,11 @@ export class EmailService implements IEmailService {
     }
 
     try {
-      await withRetry(() => this.provider.send({ to, subject, html, text }));
+      await withRetry(
+        () => this.provider.send({ to, subject, html, text }),
+        3, 500,
+        isRetriableSmtpError,
+      );
     } catch (err) {
       console.error(`EmailService: provider failed for "${templateName}" → ${to}`, err);
       throw err;
