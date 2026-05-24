@@ -111,6 +111,54 @@ export function createHabitsRouter(io: Server) {
     res.status(201).json(enriched);
   });
 
+  router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
+    const { name, description, color, icon } = req.body;
+
+    const { data: existing } = await db
+      .from('habits')
+      .select('id')
+      .eq('id', req.params.id)
+      .eq('user_id', req.userId)
+      .single();
+
+    if (!existing) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+    if (color !== undefined && !COLORS.includes(color)) {
+      res.status(400).json({ error: 'Invalid color' }); return;
+    }
+    if (icon !== undefined && !ICONS.includes(icon)) {
+      res.status(400).json({ error: 'Invalid icon' }); return;
+    }
+
+    const patch: Record<string, string> = {};
+    if (name !== undefined) patch.name = name.trim();
+    if (description !== undefined) patch.description = description;
+    if (color !== undefined) patch.color = color;
+    if (icon !== undefined) patch.icon = icon;
+
+    if (patch.name !== undefined && !patch.name) {
+      res.status(400).json({ error: 'Name cannot be empty' }); return;
+    }
+
+    if (Object.keys(patch).length === 0) {
+      res.status(400).json({ error: 'No fields to update' }); return;
+    }
+
+    const { data: habit, error } = await db
+      .from('habits')
+      .update(patch)
+      .eq('id', req.params.id)
+      .eq('user_id', req.userId)
+      .select('*')
+      .single();
+
+    if (error) { res.status(500).json({ error: error.message }); return; }
+
+    const enriched = await enrichHabit(habit);
+    io.to(`user:${req.userId}`).emit('habit:updated', enriched);
+    res.json(enriched);
+  });
+
   router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
     const { error } = await db
       .from('habits')
